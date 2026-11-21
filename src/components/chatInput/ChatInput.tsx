@@ -4,6 +4,7 @@ import {
   IconCheckOutline16,
   IconGlobeLanguageOutline14,
   IconPaperclipOutline16,
+  IconPromptOutline14,
   IconSendOutline16,
   IconStopFill16,
   IconThinkOutline14,
@@ -39,6 +40,7 @@ import { useVoiceInput } from './useVoiceInput.js'
 import { VoiceButton } from './VoiceButton.js'
 import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
+import { PromptPicker } from '../prompts/PromptPicker.js'
 import styles from './ChatInput.module.css'
 
 /** 输入框：自适应高度的文本框 + 文件 + 模型与思考档位 + 智能搜索开关 + 语音输入 + 发送 / 停止 */
@@ -93,6 +95,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
   const [sent, setSent] = useState(false)
+  const [promptPickerOpen, setPromptPickerOpen] = useState(false)
   const sentTimerRef = useRef(0)
 
   const showSentFeedback = useCallback((duration: number) => {
@@ -209,6 +212,27 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       }),
     [cancelVoice]
   )
+
+  /** 提示词插入光标处；未聚焦时追加到末尾，避免恢复的草稿被插到开头 */
+  const insertPrompt = (content: string) => {
+    const textarea = textareaRef.current
+    const current = getDraft(sessionId).text
+    const focused = textarea !== null && document.activeElement === textarea
+    const start = focused ? (textarea.selectionStart ?? current.length) : current.length
+    const end = focused ? (textarea.selectionEnd ?? current.length) : current.length
+    const before = current.slice(0, start)
+    const after = current.slice(end)
+    const prefix = before && !before.endsWith('\n') ? '\n\n' : ''
+    const suffix = after && !after.startsWith('\n') ? '\n' : ''
+    const inserted = prefix + content + suffix
+    setText(before + inserted + after)
+    setPromptPickerOpen(false)
+    requestAnimationFrame(() => {
+      textarea?.focus({ preventScroll: true })
+      const caret = start + inserted.length
+      textarea?.setSelectionRange(caret, caret)
+    })
+  }
 
   // 录音中由状态条与滚动波形接管输入区
   const recording = voice.status === 'recording'
@@ -336,6 +360,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               <span className={styles.toggleLabel}>{t('searchShort')}</span>
             </button>
           </Tooltip>
+          <Tooltip content={t('promptPickerTitle')}>
+            <button
+              type="button"
+              className={styles.toggle}
+              aria-label={t('promptPickerTitle')}
+              aria-haspopup="dialog"
+              disabled={importingHistory || voice.status !== 'idle'}
+              onClick={() => setPromptPickerOpen(true)}
+            >
+              <IconPromptOutline14 />
+              <span className={styles.toggleLabel}>{t('promptShort')}</span>
+            </button>
+          </Tooltip>
         </div>
         <div className={styles.right}>
           <VoiceButton
@@ -426,6 +463,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         </div>
       </div>
       {dragging ? <DragMask /> : null}
+      <PromptPicker
+        open={promptPickerOpen}
+        onClose={() => setPromptPickerOpen(false)}
+        onInsert={insertPrompt}
+      />
     </div>
   )
 }

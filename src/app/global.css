@@ -38,6 +38,23 @@
   background-color: rgba(58, 99, 242, 0.22);
 }
 
+/* 从搜索结果跳到消息时的短暂高亮 */
+@keyframes message-jump-flash {
+  0% {
+    background-color: rgba(58, 99, 242, 0.16);
+    box-shadow: 0 0 0 6px rgba(58, 99, 242, 0.12);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+.message-jump-flash {
+  border-radius: 12px;
+  animation: message-jump-flash 1.8s var(--ds-ease-in-out);
+}
+
 @media (max-width: 1023px) {
   :root {
     --message-list-max-width: 712px;

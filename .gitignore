@@ -12,6 +12,7 @@ tmp/
 _ref/
 
 .shots/
+.qoder-credits/
 
 # Android 构建产物与本地 SDK
 .android-sdk/

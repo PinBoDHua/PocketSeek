@@ -35,6 +35,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   isLast,
   streaming,
   busy,
+  flash,
   versions,
   onSelectVersion,
 }: {
@@ -43,6 +44,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   isLast: boolean
   streaming: boolean
   busy: boolean
+  /** 搜索结果跳转后的短暂高亮 */
+  flash: boolean
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
 }) {
@@ -73,7 +76,10 @@ export const AssistantMessage = memo(function AssistantMessage({
     onRegenerate: busy || refused ? undefined : regenerate,
   })
   return (
-    <div className={styles.message}>
+    <div
+      className={clsx(styles.message, flash && 'message-jump-flash')}
+      data-message-id={message.id}
+    >
       {refused ? null : (
         <ReplyArea
           message={message}

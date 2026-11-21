@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import {
   IconChevronDownOutline14,
@@ -9,10 +9,23 @@ import {
   NewChatIcon,
 } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
+import { BrandMark } from '../base/BrandMark.js'
 import { usePins } from '../../services/chat/pins.js'
-import { groupSessions, searchSessions } from '../../services/chat/sessionGroups.js'
-import { newChat, removeSession, removeSessions, useChatStore } from '../../services/chat/store.js'
+import { groupSessions } from '../../services/chat/sessionGroups.js'
+import {
+  searchAllSessions,
+  type MessageHit,
+  type SearchResult,
+} from '../../services/chat/search.js'
+import {
+  newChat,
+  removeSession,
+  removeSessions,
+  selectSession,
+  useChatStore,
+} from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
+import { jumpToMessage } from '../messages/messageJump.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { Modal } from '../base/Modal.js'
@@ -25,9 +38,34 @@ import { SessionSearch } from './SessionSearch.js'
 import { useCollapsedSessionGroups } from './sessionGroupCollapse.js'
 import styles from './Sider.module.css'
 
+/** 在片段中高亮所有命中词；大小写不敏感，查询为空时原样返回。 */
+const highlightSnippet = (text: string, query: string): ReactNode => {
+  const keyword = query.trim().toLowerCase()
+  if (!keyword) {
+    return text
+  }
+  const lower = text.toLowerCase()
+  const parts: ReactNode[] = []
+  let start = 0
+  let index = lower.indexOf(keyword)
+  while (index >= 0) {
+    if (index > start) {
+      parts.push(text.slice(start, index))
+    }
+    parts.push(<mark key={index}>{text.slice(index, index + keyword.length)}</mark>)
+    start = index + keyword.length
+    index = lower.indexOf(keyword, start)
+  }
+  if (start < text.length) {
+    parts.push(text.slice(start))
+  }
+  return parts
+}
+
 /**
  * 展开的侧边栏：名称与收起按钮、开启新对话、会话搜索、置顶/按时间分组的会话列表、底部设置；
  * 多选时列表底部换成批量操作工具条。移动端放在抽屉里，收起按钮关闭抽屉。
+ * 搜索同时匹配会话标题与消息正文，点消息结果可直接跳到对应位置。
  */
 export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const t = useTranslate()
@@ -36,6 +74,8 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const pinnedIds = usePins((state) => state.ids)
   const [now, setNow] = useState(Date.now)
   const [query, setQuery] = useState('')
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
+  const [searchPending, setSearchPending] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
@@ -51,10 +91,39 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     () => groupSessions(sessions, now, t, pinnedIds),
     [sessions, now, t, pinnedIds]
   )
-  const results = useMemo(
-    () => (searching ? searchSessions(sessions, query, t, pinnedIds) : []),
-    [searching, sessions, query, t, pinnedIds]
-  )
+  // 搜索读全库而不是只读会话列表，防抖后执行；会话列表变化（重命名、删除）时重新搜索
+  useEffect(() => {
+    const keyword = query.trim()
+    if (!keyword) {
+      setSearchResult(null)
+      setSearchPending(false)
+      return
+    }
+    let cancelled = false
+    setSearchPending(true)
+    setSearchResult(null)
+    const timer = setTimeout(() => {
+      void searchAllSessions(keyword)
+        .then((result) => {
+          if (!cancelled) {
+            setSearchResult(result)
+            setSearchPending(false)
+          }
+        })
+        .catch((error: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('[search] local search failed', error)
+          if (!cancelled) {
+            setSearchResult({ titles: [], messages: [], truncated: false })
+            setSearchPending(false)
+          }
+        })
+    }, 200)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [query, sessions])
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -168,10 +237,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     />
   )
 
+  const openMessageHit = (hit: MessageHit) => {
+    selectSession(hit.sessionId)
+    jumpToMessage(hit.sessionId, hit.messageId)
+    closeMobileSider()
+  }
+
   return (
     <div className={clsx(styles.sider, mobile && styles.mobile)}>
       <div className={styles.top}>
-        <div className={styles.appName}>{t('appName')}</div>
+        <div className={styles.brand}>
+          <BrandMark size={28} className={styles.brandMark} />
+          <div className={styles.appName}>{t('appName')}</div>
+        </div>
         <IconButton
           size="m"
           icon={<IconPanelLeftOutline16 />}
@@ -218,11 +296,62 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
       <div className={clsx(styles.listWrap, hasSessions && styles.listWrapBelowSearch)}>
         <div ref={listRef} className={styles.list}>
           {searching ? (
-            results.length > 0 ? (
-              results.map(renderItem)
-            ) : (
-              <div className={styles.searchEmpty}>{t('sessionSearchEmpty')}</div>
-            )
+            <div className={styles.searchResults}>
+              {searchPending || searchResult === null ? (
+                <div className={styles.searchStatus} role="status" aria-live="polite">
+                  {t('searchingMessages')}
+                </div>
+              ) : null}
+              {searchResult && searchResult.titles.length > 0 ? (
+                <>
+                  <div className={styles.searchSectionLabel}>
+                    {t('searchTitleMatches', { count: searchResult.titles.length })}
+                  </div>
+                  {searchResult.titles.map((hit) =>
+                    renderItem({
+                      id: hit.sessionId,
+                      title: hit.title,
+                      createdAt: hit.createdAt,
+                      updatedAt: hit.updatedAt,
+                    })
+                  )}
+                </>
+              ) : null}
+              {searchResult && searchResult.messages.length > 0 ? (
+                <>
+                  <div className={styles.searchSectionLabel}>
+                    {t('searchMessageMatches', { count: searchResult.messages.length })}
+                  </div>
+                  {searchResult.messages.map((hit) => (
+                    <button
+                      key={`${hit.sessionId}-${hit.messageId}`}
+                      type="button"
+                      className={styles.searchHit}
+                      onClick={() => openMessageHit(hit)}
+                    >
+                      <span className={styles.searchHitTop}>
+                        <span className={styles.searchHitTitle}>{hit.title}</span>
+                        <span className={styles.searchHitRole}>
+                          {t(hit.role === 'user' ? 'searchHitRoleUser' : 'searchHitRoleAssistant')}
+                        </span>
+                      </span>
+                      <span className={styles.searchHitSnippet}>
+                        {highlightSnippet(hit.snippet, query)}
+                      </span>
+                    </button>
+                  ))}
+                </>
+              ) : null}
+              {!searchPending &&
+              searchResult &&
+              searchResult.titles.length === 0 &&
+              searchResult.messages.length === 0 ? (
+                <div className={styles.searchEmpty}>{t('sessionSearchEmpty')}</div>
+              ) : null}
+              {searchResult?.truncated ? (
+                <div className={styles.searchHint}>{t('searchResultLimitHint')}</div>
+              ) : null}
+            </div>
           ) : (
             groups.map((group) => {
               const isCollapsed = collapsed.includes(group.key)

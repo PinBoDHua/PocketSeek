@@ -1,11 +1,13 @@
 import clsx from 'clsx'
 import { useRef, useState, type ReactNode } from 'react'
 import {
+  IconChartOutline16,
   IconDarkOutline16,
   IconDataOutline16,
   IconDownloadOutline16,
   IconFollowsystemOutline16,
   IconLightOutline16,
+  IconPromptOutline16,
   IconSettingsOutline16,
   IconUploadOutline14,
 } from '../base/icons.js'
@@ -36,17 +38,21 @@ import {
   type ThemePreference,
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
+import { BrandMark } from '../base/BrandMark.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+import { PromptsPanel } from './PromptsPanel.js'
+import { UsagePanel } from './UsagePanel.js'
 import styles from './Settings.module.css'
 
 /**
  * 设置弹窗：分「通用设置」（主题、默认模型、思考强度、朗读音色、用量脚注）、
- * 「数据管理」（API Key、导入、导出、删除）与「关于」（版本、安装到桌面、非官方说明）。
+ * 「用量统计」（token、费用、近 7 天趋势）、「数据管理」（API Key、导入、导出、删除）
+ * 与「关于」（版本、安装到桌面、非官方说明）。
  * 桌面端为居中弹窗、左侧导航；移动端为底部弹层、导航横排在内容上方
  */
 export const SettingsDialog = () => {
@@ -60,6 +66,8 @@ const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode
     label: 'settingDialogAsideGeneralOptionLabel',
     icon: <IconSettingsOutline16 />,
   },
+  { value: 'prompts', label: 'settingDialogAsidePromptsOptionLabel', icon: <IconPromptOutline16 /> },
+  { value: 'usage', label: 'settingDialogAsideUsageOptionLabel', icon: <IconChartOutline16 /> },
   { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
   { value: 'about', label: 'settingDialogAsideAboutOptionLabel', icon: <IconInfoOutline16 /> },
 ]
@@ -113,6 +121,10 @@ const SettingsContent = () => {
               <TtsVoiceSetting />
               <ShowUsageSetting />
             </>
+          ) : section === 'prompts' ? (
+            <PromptsPanel />
+          ) : section === 'usage' ? (
+            <UsagePanel />
           ) : section === 'data' ? (
             <>
               <ApiKeyField editor={apiKeyEditor} />
@@ -369,9 +381,14 @@ const AboutPanel = () => {
   return (
     <>
       <div className={styles.about}>
-        <div className={styles.aboutName}>{t('appName')}</div>
+        <div className={styles.aboutBrand}>
+          <BrandMark size={48} className={styles.aboutMark} />
+          <div className={styles.aboutBrandText}>
+            <div className={styles.aboutName}>{t('appName')}</div>
+            <div className={styles.aboutVersion}>{t('settingsVersion', { version })}</div>
+          </div>
+        </div>
         <p className={styles.aboutText}>{t('settingsAboutDescription')}</p>
-        <div className={styles.aboutVersion}>{t('settingsVersion', { version })}</div>
       </div>
       <SettingCell
         label={t('settingsInstallApp')}

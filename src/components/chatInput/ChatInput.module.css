@@ -296,29 +296,6 @@
   max-height: 336px;
 }
 
-@media not all and (min-width: 768px) {
-  .wrapper {
-    flex-shrink: 0;
-    max-height: calc(var(--app-viewport-height, 100dvh) - 120px);
-  }
-
-  .textareaWrapper {
-    min-height: 0;
-  }
-
-  .attachments,
-  .functionRow {
-    flex-shrink: 0;
-  }
-
-  /* 手机上给右侧按钮留出空间，紧凑一点才放得下两个带文字的开关 */
-  .toggle {
-    height: 32px;
-    padding: 0 10px;
-    font-size: 12px;
-  }
-}
-
 .functionRow {
   display: flex;
   align-items: center;
@@ -338,6 +315,7 @@
 .collapsedToggles .toggleLabel {
   display: none;
 }
+
 
 /* 菜单里未选中项的占位，保证文字左对齐一致 */
 .menuSpacer {
@@ -425,4 +403,45 @@
 /* 发送成功：按钮短暂切换为对勾，不额外弹 toast 打断阅读 */
 .sent {
   cursor: default;
+}
+
+/* 移动端覆盖必须放在基础规则之后，否则同优先级的基础尺寸会反向覆盖 */
+@media not all and (min-width: 768px) {
+  .wrapper {
+    flex-shrink: 0;
+    max-height: calc(var(--app-viewport-height, 100dvh) - 120px);
+  }
+
+  .textareaWrapper {
+    min-height: 0;
+  }
+
+  .attachments,
+  .functionRow {
+    flex-shrink: 0;
+  }
+
+  /* 手机上给右侧按钮留出空间，紧凑一点才放得下三枚图标开关 */
+  .functionRow {
+    gap: 6px;
+  }
+
+  .toggles {
+    gap: 5px;
+    overflow: hidden;
+  }
+
+  .toggle {
+    height: 32px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  .right {
+    gap: 2px;
+  }
+
+  .sendButton {
+    margin-left: 4px;
+  }
 }

@@ -1,7 +1,7 @@
 .dialog {
   --modal-header-gap: 7px;
   width: 760px;
-  height: 500px;
+  height: 560px;
   max-height: calc(100vh - 32px);
   padding: 19px 24px 22px;
 }
@@ -330,7 +330,7 @@
   .content {
     padding-top: 24px;
     padding-left: 0;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
 
   .text {
@@ -441,11 +441,31 @@
   }
 }
 
-/* 关于页：品牌名、非官方声明与版本号 */.about {
+/* 关于页：品牌头像、品牌名、非官方声明与版本号 */
+.about {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   padding: 4px 0 16px;
+}
+
+.aboutBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aboutBrandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aboutMark {
+  flex-shrink: 0;
+  border-radius: 11px;
+  filter: drop-shadow(0 4px 10px rgba(58, 99, 242, 0.2));
 }
 
 .aboutName {
@@ -463,9 +483,10 @@
 }
 
 .aboutVersion {
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-dimmed);
+  font-size: 13px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary);
 }
 
 /* 原生壳 / 已安装 PWA：安装入口显示为一行状态文字 */

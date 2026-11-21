@@ -15,17 +15,20 @@ export type MenuOption = {
 /** 点击触发，向下展开；点外部或 Esc 关闭 */
 export const Menu = ({
   options,
+  align = 'start',
   children,
 }: {
   options: MenuOption[]
+  /** 默认左对齐；放在顶栏右侧入口时用 end 对齐 */
+  align?: 'start' | 'end'
   children: (props: { open: boolean; toggle: () => void }) => ReactNode
 }) => {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
-  // 左侧对齐并再左移 5px，让菜单文字与触发元素图标对齐
+  // 左对齐时再左移 5px，让菜单文字与触发元素图标对齐；右对齐镜像处理
   const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
     open,
-    { align: 'start', alignOffset: -5, offset: 4 }
+    { align, alignOffset: align === 'end' ? 5 : -5, offset: 4 }
   )
   useDismiss(open, [anchorRef, floatingRef], close)
 

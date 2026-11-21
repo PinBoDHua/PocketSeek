@@ -11,8 +11,10 @@ import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import { newChat } from '../../services/chat/store.js'
 import { setModel, useSettings } from '../../services/settings.js'
 import type { ChatModel } from '../../services/api/types.js'
+import type { Session } from '../../services/chat/types.js'
 import { IconButton } from '../base/IconButton.js'
 import { openMobileSider } from '../sider/mobileSiderState.js'
+import { SessionActionsMenu } from './SessionActionsMenu.js'
 import styles from './MobileHeader.module.css'
 
 const MODEL_LABELS: Record<ChatModel, TranslationKey> = {
@@ -22,8 +24,8 @@ const MODEL_LABELS: Record<ChatModel, TranslationKey> = {
 
 const MODELS: ChatModel[] = ['deepseek-flash', 'deepseek-v4-pro']
 
-/** 移动端顶栏：左侧菜单打开侧边栏；中间标题；右侧模型切换与新对话 */
-export const MobileHeader = ({ title }: { title?: string }) => {
+/** 移动端顶栏：左侧菜单打开侧边栏；中间标题；右侧模型切换、会话操作与新对话 */
+export const MobileHeader = ({ title, session }: { title?: string; session?: Session }) => {
   const t = useTranslate()
   const model = useSettings((state) => state.model)
   const modelOptions: MenuOption[] = MODELS.map((value) => ({
@@ -59,6 +61,7 @@ export const MobileHeader = ({ title }: { title?: string }) => {
           </button>
         )}
       </Menu>
+      {session ? <SessionActionsMenu session={session} align="end" size="xl" /> : null}
       {title === undefined ? null : (
         <IconButton
           size="xl"

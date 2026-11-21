@@ -12,7 +12,7 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionName 0.1.2`（改 `android/app/build.gradle`）
+- 版本：`versionCode 7` / `versionName 0.4.0`（改 `android/app/build.gradle`）
 - 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**，密码默认 `pocketseek2026`，可用
   `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD` 覆盖）
 
@@ -31,6 +31,9 @@
 `.android-sdk`、`.tools`、keystore、`android/local.properties` 都已 gitignore。
 
 ## 构建步骤
+
+> `pnpm build` 走 `scripts/build.mjs`：内部设置 `NODE_ENV=production` 并清理 `dist/`，
+> Windows 的 cmd / PowerShell 与 Git Bash 都可直接执行。
 
 ```sh
 # 1) 构建 Web 产物并同步进 Android 工程
@@ -69,7 +72,17 @@ sdk.dir=D:/DeepSeekApp/.android-sdk
   —— WebView 里是安全上下文，localStorage / 摄像头 / 录音 / 文件选择器行为与浏览器一致。
 - 原生壳内不注册 Service Worker（`src/pwa.ts` 里检测 `window.Capacitor`），避免缓存导致升级后加载旧资源。
 - Manifest 额外声明 `RECORD_AUDIO` / `MODIFY_AUDIO_SETTINGS`，供语音输入使用。
-- 图标与启动图由 `design/make_android_assets.py` 从矢量 logo 生成（蓝底白问号）。
+- `@capacitor/filesystem` + `@capacitor/share`（0.2.0 新增）：会话 Markdown 导出写入缓存文件后调起系统分享面板；
+  WebView 不支持浏览器式 blob 下载与 Web Share，因此原生壳内必须走这两个插件。无额外运行时权限。
+- 图标与启动图由 `design/make_android_assets.py` 从「口袋 + 星芒」矢量母版生成；
+  `ic_launcher_foreground.png` 同时作为自适应图标前景与 Android 13 单色主题图标的 alpha 蒙版。
+- 窗口底色：`android/app/src/main/java/com/pocketseek/app/ThemeBackgroundPlugin.java` 由 `src/native.ts` 调用，
+  手动切换深浅主题时同步状态栏 / 手势栏背后的窗口底色（Android 15+ 的 `setStatusBarColor` 已不生效，改为设置 window background）。
+- 修改品牌标记后（需要 Python + Pillow）：
+  ```sh
+  python design/make_icons.py           # public/ PWA、favicon、Apple touch
+  python design/make_android_assets.py  # Android mipmap + splash
+  ```
 
 ## 升级 App 的流程
 

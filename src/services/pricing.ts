@@ -47,6 +47,10 @@ export const formatCost = (cost: number): string => {
   return fixed.replace(/0+$/, '').replace(/\.$/, '')
 }
 
-/** token 数展示：超过 1000 时用 K 缩写 */
-export const formatTokens = (count: number): string =>
-  count >= 1000 ? `${(count / 1000).toFixed(1)}K` : String(count)
+/** token 数展示：超过 100 万用 M，超过 1000 用 K */
+export const formatTokens = (count: number): string => {
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1)}M`
+  }
+  return count >= 1000 ? `${(count / 1000).toFixed(1)}K` : String(count)
+}

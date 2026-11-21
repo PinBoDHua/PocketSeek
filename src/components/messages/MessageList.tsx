@@ -11,6 +11,7 @@ import type { Session } from '../../services/chat/types.js'
 import { IconArrowDownOutline16 } from '../base/actionIcons.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { AssistantMessage } from './AssistantMessage.js'
+import { useMessageJump } from './messageJump.js'
 import { ScrollToBottomContext } from './scrollContext.js'
 import { UserMessage } from './UserMessage.js'
 import type { Message } from '../../services/chat/types.js'
@@ -57,6 +58,10 @@ export const MessageList = ({
   const [footerHeight, setFooterHeight] = useState(0)
   // 只有离开底部一段距离才浮出回到底部按钮，避免和流式跟随互相打扰
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [jumpFlash, setJumpFlash] = useState<string | null>(null)
+  const jumpTarget = useMessageJump((state) => state.target)
+  // 已处理的跳转序号：切换会话再回来时不重复滚动到旧目标
+  const consumedJump = useRef(0)
   const messages = getVisibleMessages(session)
   const [previousVersions, setPreviousVersions] = useState(() =>
     buildMessageVersions(session, new Map())
@@ -125,6 +130,35 @@ export const MessageList = ({
 
   useEffect(closeSearchPanel, [session.id, lastMessageId])
 
+  // 搜索结果跳转：滚到目标消息并短暂高亮；停止跟随底部，方便阅读上下文。
+  useEffect(() => {
+    if (
+      !jumpTarget ||
+      jumpTarget.sessionId !== session.id ||
+      jumpTarget.nonce <= consumedJump.current
+    ) {
+      return
+    }
+    consumedJump.current = jumpTarget.nonce
+    const target = scrollRef.current?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(jumpTarget.messageId)}"]`
+    )
+    if (!target) {
+      return
+    }
+    stickyRef.current = false
+    target.scrollIntoView({ block: 'center' })
+    setJumpFlash(jumpTarget.messageId)
+  }, [jumpTarget, session.id])
+
+  useEffect(() => {
+    if (!jumpFlash) {
+      return
+    }
+    const timer = setTimeout(() => setJumpFlash(null), 1800)
+    return () => clearTimeout(timer)
+  }, [jumpFlash])
+
   const selectVersion = useCallback(
     (messageId: string, anchorTop: number) => {
       if (streaming) {
@@ -192,6 +226,7 @@ export const MessageList = ({
                     isFirst={index === 0}
                     isLast={index === lastIndex || index === lastIndex - 1}
                     busy={streaming}
+                    flash={jumpFlash === message.id}
                     versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                     onSelectVersion={selectVersion}
                   />
@@ -203,6 +238,7 @@ export const MessageList = ({
                     isLast={index === lastIndex}
                     streaming={streaming && index === lastIndex}
                     busy={streaming}
+                    flash={jumpFlash === message.id}
                     versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                     onSelectVersion={selectVersion}
                   />

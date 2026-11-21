@@ -29,6 +29,13 @@
   margin-left: 113px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .inputContainer {
   position: sticky;
   bottom: 0;

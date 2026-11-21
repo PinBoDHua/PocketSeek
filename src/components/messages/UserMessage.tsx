@@ -28,6 +28,7 @@ export const UserMessage = memo(function UserMessage({
   isFirst,
   isLast,
   busy,
+  flash,
   versions,
   onSelectVersion,
 }: {
@@ -38,6 +39,8 @@ export const UserMessage = memo(function UserMessage({
   isFirst: boolean
   isLast: boolean
   busy: boolean
+  /** 搜索结果跳转后的短暂高亮 */
+  flash: boolean
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
 }) {
@@ -76,7 +79,14 @@ export const UserMessage = memo(function UserMessage({
   })
 
   return (
-    <div className={clsx(styles.container, isFirst && styles.isFirst)}>
+    <div
+      className={clsx(
+        styles.container,
+        isFirst && styles.isFirst,
+        flash && 'message-jump-flash'
+      )}
+      data-message-id={message.id}
+    >
       {message.files.length > 0 ? (
         <div
           className={clsx(

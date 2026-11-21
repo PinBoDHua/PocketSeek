@@ -22,9 +22,22 @@
   flex-shrink: 0;
 }
 
-.appName {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
   padding-left: 4px;
+}
+
+.brandMark {
+  flex-shrink: 0;
+  border-radius: 7px;
+  filter: drop-shadow(0 2px 5px rgba(58, 99, 242, 0.2));
+}
+
+.appName {
+  min-width: 0;
   overflow: hidden;
   font-size: 20px;
   line-height: 22px;
@@ -184,6 +197,106 @@
   text-align: center;
 }
 
+.searchResults {
+  padding-bottom: 8px;
+}
+
+.searchStatus {
+  padding: 28px 12px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.searchSectionLabel {
+  padding: 16px 8px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.searchHit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 2px 0;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+
+  &:hover {
+    background-color: var(--dsw-specific-sidebar-nav-item-hover);
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--dsw-alias-button-primary-fill);
+  }
+}
+
+.searchHitTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.searchHitTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.searchHitRole {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: var(--dsw-alias-interactive-bg-hover);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.searchHitSnippet {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 19px;
+  color: var(--dsw-alias-label-secondary);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.searchHitSnippet mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background-color: rgba(58, 99, 242, 0.18);
+  color: inherit;
+}
+
+.searchHint {
+  padding: 10px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .bottom {
   display: flex;
   flex-shrink: 0;
@@ -295,6 +408,31 @@
   .searchEmpty {
     font-size: 14px;
     line-height: 22px;
+  }
+
+  .searchStatus,
+  .searchHint {
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .searchSectionLabel {
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .searchHit {
+    padding: 12px;
+  }
+
+  .searchHitTitle {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .searchHitSnippet {
+    font-size: 13px;
+    line-height: 20px;
   }
 
   .bottom {

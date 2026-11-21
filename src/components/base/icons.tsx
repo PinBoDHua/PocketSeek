@@ -222,6 +222,33 @@ export const IconPaperclipOutline16 = () => (
   </svg>
 )
 
+/** 分享：三个节点与连线，顶栏会话操作菜单使用 */
+export const IconShareOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M5.65 7.08L10.35 4.42M5.65 8.92L10.35 11.58"
+      stroke="currentColor"
+      strokeWidth={1.4}
+      strokeLinecap="round"
+    />
+    <circle cx="3.4" cy="8" r="1.9" stroke="currentColor" strokeWidth={1.4} />
+    <circle cx="12.6" cy="3.5" r="1.9" stroke="currentColor" strokeWidth={1.4} />
+    <circle cx="12.6" cy="12.5" r="1.9" stroke="currentColor" strokeWidth={1.4} />
+  </svg>
+)
+
+/** 用量统计：四根柱状条 */
+export const IconChartOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M2.25 13V9.5M6.25 13V6.5M10.25 13V8.5M14.25 13V3.5"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
 export const IconRefreshOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -425,6 +452,27 @@ export const IconSearchWarningOutline16 = () => (
     />
     <path
       d="M9.26526 12.5172C8.46932 12.8746 7.58782 13.0757 6.65881 13.0758C5.72972 13.0758 4.84747 12.8756 4.05139 12.5181L4.70471 11.3853C5.30616 11.6366 5.96625 11.776 6.65881 11.776C7.3511 11.7759 8.01067 11.6365 8.61194 11.3853L9.26526 12.5172ZM1.62854 7.3531C1.80466 8.72851 2.53029 9.93116 3.57971 10.734L2.92542 11.8668C1.49134 10.8285 0.505229 9.20914 0.317017 7.3531H1.62854ZM12.9987 7.3531C12.8104 9.20937 11.8245 10.8285 10.3903 11.8668L9.73694 10.734C10.7865 9.93115 11.5129 8.72861 11.6891 7.3531H12.9987ZM10.3903 1.53767C11.8246 2.57611 12.8104 4.1959 12.9987 6.05232H11.6891C11.5129 4.6766 10.7869 3.47321 9.73694 2.67049L10.3903 1.53767ZM3.57971 2.67049C2.52998 3.4732 1.8047 4.67669 1.62854 6.05232H0.317017C0.505244 4.19613 1.49119 2.57614 2.92542 1.53767L3.57971 2.67049ZM6.65881 0.32869C7.58761 0.328776 8.46946 0.528969 9.26526 0.886307L8.61096 2.0201C8.00995 1.7692 7.35073 1.62955 6.65881 1.62947C5.96675 1.62947 5.30679 1.76821 4.70569 2.01912L4.05139 0.886307C4.84743 0.528886 5.72979 0.32869 6.65881 0.32869Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
+/** 快捷提示词：圆角方框内的闪电 */
+export const IconPromptOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1.35" y="1.35" width="13.3" height="13.3" rx="4" stroke="currentColor" strokeWidth="1.3" />
+    <path
+      d="M8.85 3.6 5.45 8.55h2.3L7.15 12.4l3.4-4.95h-2.3l.6-3.85Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
+export const IconPromptOutline14 = () => (
+  <svg width={14} height={14} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1.35" y="1.35" width="13.3" height="13.3" rx="4" stroke="currentColor" strokeWidth="1.3" />
+    <path
+      d="M8.85 3.6 5.45 8.55h2.3L7.15 12.4l3.4-4.95h-2.3l.6-3.85Z"
       fill="currentColor"
     />
   </svg>
