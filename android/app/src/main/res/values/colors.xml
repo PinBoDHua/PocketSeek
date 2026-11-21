@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PocketSeek 品牌色 -->
+    <color name="colorPrimary">#3A63F2</color>
+    <color name="colorPrimaryDark">#2C4CD0</color>
+    <color name="colorAccent">#3A63F2</color>
+</resources>

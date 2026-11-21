@@ -9,11 +9,19 @@ type InstallState = 'available' | 'installed' | 'unavailable'
 
 type Snapshot = InstallState
 
+/** 是否运行在 Capacitor 原生壳（APK）里：此时不需要 PWA 安装与 Service Worker */
+const isNativeShell = (): boolean => {
+  const capacitor = (
+    window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
+  ).Capacitor
+  return Boolean(capacitor?.isNativePlatform?.())
+}
+
 const listeners = new Set<() => void>()
 let deferredPrompt: InstallPromptEvent | null = null
 let installed =
   typeof window !== 'undefined' &&
-  window.matchMedia('(display-mode: standalone)').matches
+  (window.matchMedia('(display-mode: standalone)').matches || isNativeShell())
 
 const emit = () => listeners.forEach((listener) => listener())
 
@@ -66,6 +74,10 @@ export const usePwaInstall = () => {
  */
 export const registerServiceWorker = () => {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return
+  }
+  // 原生壳内置了完整资源，不需要离线壳（也避免 SW 缓存导致升级后仍加载旧资源）
+  if (isNativeShell()) {
     return
   }
   const { protocol, hostname } = window.location

@@ -12,3 +12,25 @@ tmp/
 _ref/
 
 .shots/
+
+# Android 构建产物与本地 SDK
+.android-sdk/
+.tmp/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+
+android/app/pocketseek-release.jks
+
+# cap sync 生成的原生资源与插件壳（pnpm build && npx cap sync android 可重建）
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+
+# 本地工具链（JDK/SDK 等）
+.tools/
+
+# Python
+__pycache__/
+*.pyc

@@ -51,9 +51,23 @@ pnpm serve        # 默认 http://0.0.0.0:4173
 
 ### 在手机上用
 
+**方式一（推荐）：装 APK**
+
+已构建并签名的安装包：[`release/PocketSeek-0.1.0.apk`](release/PocketSeek-0.1.0.apk)（约 5.0MB，Android 7.0+）
+
+1. 把 APK 传到手机（微信文件传输 / 数据线 / 网盘均可）。
+2. 点击安装；系统提示「未知来源」时允许该来源。
+3. 打开 PocketSeek → 设置 → 数据管理 → 填入 DeepSeek API Key。
+4. 之后无需电脑、无需浏览器，像普通 App 一样使用。
+
+包名 `com.pocketseek.app`，版本 `0.1.0`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。
+重新构建见 [docs/android-build.md](docs/android-build.md)：Capacitor 8 + JDK 21 + 自建 Android SDK，全部走国内镜像，无需 Android Studio。
+
+**方式二：手机浏览器**
+
 1. 电脑与手机连同一个 Wi-Fi，执行 `pnpm serve`，记下终端打印的 `手机（同一 Wi-Fi）：http://192.168.x.x:4173`
 2. 手机浏览器打开该地址即可（Android Chrome / 系统浏览器均可）。
-3. 想装到桌面：把 `dist/` 部署到任意 HTTPS 静态站（如 GitHub Pages），再在浏览器菜单里「添加到主屏幕」；APK 路线见下文。
+3. 想装到桌面：把 `dist/` 部署到任意 HTTPS 静态站（如 GitHub Pages），再在浏览器菜单里「添加到主屏幕」。
 
 > 局域网 http 不是安全上下文，Service Worker 不会注册，所以局域网访问时没有离线壳、也没有一键安装按钮；功能本身不受影响。
 
@@ -98,11 +112,12 @@ pnpm serve
 - **PWA 安装需要 HTTPS**：局域网 http 只能当普通网页用。
 - **未内置任何 Key / 代理**：BYO-Key（用户自带 Key）模式。
 
-## 路线图（下一轮）
+## 路线图
 
-1. **APK**：用 Capacitor 包装本工程（`https://localhost` 是安全上下文，PWA 能力在 APK 内完整可用），或在 GitHub Actions 里云端构建 APK。
-2. **公网 HTTPS**：仓库已带 `.github/workflows/pages.yml`，推到 GitHub 后开启 Pages 即可获得可安装的 PWA。
-3. 分享目标（从其他 App 直接分享文本/图片进来）、离线草稿队列。
+- ✅ **Android APK**：Capacitor 8 原生壳已出包（见上），自签、可直接侧载。
+- ⏳ **公网 HTTPS**：仓库带 `.github/workflows/pages.yml`，推到 GitHub 开启 Pages 即可获得可安装的 PWA。
+- ⏳ 分享目标（从其他 App 直接分享文本/图片进来）、离线草稿队列。
+- ⏳ 正式上架应用商店：需要换正式发布密钥（当前为自签）、补隐私政策与年龄分级。
 
 ## 许可证与署名
 
