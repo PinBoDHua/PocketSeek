@@ -1,20 +1,23 @@
 /*
- * 覆盖输入区，左右边距与正文一致。
- * 纵向居中于「输入框上沿到工具栏按钮」之间：工具栏上方还有 4px 外边距 + 12px 内边距。
+ * 录音时占据输入区首行右侧：宽度由首行布局决定，高度固定。
+ * 柱子的高低由时域振幅决定，整体从右向左滚动。
  */
 .spectrum {
-  position: absolute;
-  top: calc(50% + 8px);
-  translate: 0 -50%;
-  left: 16px;
-  right: 12px;
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
-  justify-content: center;
   gap: 3px;
-  height: 36px;
+  min-width: 0;
+  height: 32px;
+  overflow: hidden;
   opacity: 0.7;
   pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* 暂停：波形定格并压暗，提示当前没有在采集 */
+.paused {
+  opacity: 0.3;
 }
 
 .bar {

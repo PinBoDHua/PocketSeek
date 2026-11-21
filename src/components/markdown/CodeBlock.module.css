@@ -1,3 +1,8 @@
+/* 折叠遮罩需要相对代码块绝对定位 */
+.block {
+  position: relative;
+}
+
 .container {
   display: flex;
   width: 100%;
@@ -6,19 +11,46 @@
   padding: 6px;
 }
 
-.name {
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   margin-left: 8px;
+}
+
+.name {
+  overflow: hidden;
   color: var(--dsw-alias-label-primary);
   font-family: var(--ds-font-family-code);
   font-size: 12px;
   line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lineCount {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
 }
 
 .button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  height: 28px;
+  height: 32px;
   padding: 0 10px;
   border: none;
   border-radius: 8px;
@@ -29,6 +61,16 @@
   line-height: 20px;
   cursor: pointer;
   user-select: none;
+
+  /* 视觉保持紧凑，可点区域补到 40px 高 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: 0;
+    bottom: -4px;
+    left: 0;
+  }
 
   &:active {
     background-color: var(--dsw-alias-interactive-bg-hover);
@@ -44,4 +86,17 @@
     width: 14px;
     height: 14px;
   }
+}
+
+/* 折叠预览底部的渐变遮罩：提示还有未展开的内容 */
+.mask {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 48px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--dsw-alias-markdown-code-block));
+  border-bottom-right-radius: var(--dsl-code-block-border-radius, 12px);
+  border-bottom-left-radius: var(--dsl-code-block-border-radius, 12px);
 }

@@ -45,6 +45,39 @@
   margin-left: 4px;
 }
 
+.pinMark {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 4px;
+  opacity: 0.75;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--dsw-alias-border-l3);
+  color: transparent;
+}
+
+.checked {
+  border-color: var(--dsw-alias-brand-primary);
+  background-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-static-neutral-bluish-00);
+}
+
 .renameInput {
   box-sizing: border-box;
   width: 100%;
@@ -75,6 +108,15 @@
 
   .title {
     line-height: 22px;
+  }
+
+  .pinMark {
+    margin-right: 6px;
+
+    svg {
+      width: 15px;
+      height: 15px;
+    }
   }
 
   .renameInput {

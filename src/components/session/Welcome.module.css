@@ -16,6 +16,13 @@
   padding: 0 32px 64px;
 }
 
+/* 空态主视觉：线条插画 + 问候语 */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .greeting {
   display: flex;
   align-items: center;
@@ -85,7 +92,7 @@
     padding: 0 16px var(--safe-area-bottom, env(safe-area-inset-bottom));
   }
 
-  .greeting {
+  .hero {
     flex-shrink: 0;
     margin: auto 0;
   }

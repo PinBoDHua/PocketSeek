@@ -8,6 +8,34 @@
    */
   --safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  /* 阅读体验（设置 → 阅读体验），默认与官方排版 token 一致：16px / 28px */
+  --read-font-size: 16px;
+  --read-line-height: 1.75;
+}
+
+/* 阅读设置：字号 / 行距 / 消息宽度 */
+:root[data-read-size='small'] {
+  --read-font-size: 14.5px;
+}
+:root[data-read-size='large'] {
+  --read-font-size: 17.5px;
+}
+:root[data-read-line='compact'] {
+  --read-line-height: 1.6;
+}
+:root[data-read-line='relaxed'] {
+  --read-line-height: 2;
+}
+:root[data-msg-width='compact'] {
+  --message-list-max-width: 720px;
+}
+:root[data-msg-width='wide'] {
+  --message-list-max-width: 1040px;
+}
+
+/* 选中文字用品牌蓝淡底，代替系统默认高亮 */
+::selection {
+  background-color: rgba(58, 99, 242, 0.22);
 }
 
 @media (max-width: 1023px) {

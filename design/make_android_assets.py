@@ -35,7 +35,7 @@ def render_icon(size: int, *, circle: bool) -> Image.Image:
         d.ellipse([0, 0, big - 1, big - 1], fill=BLUE)
     else:
         d.rectangle([0, 0, big, big], fill=BLUE)
-    s = big / 512 * 0.92
+    s = big / 512 * 0.97
     off = (big / 2 - 256 * s, big / 2 - 256 * s)
     draw_glyph(d, s, off)
     return img.resize((size, size), Image.LANCZOS)
@@ -45,7 +45,7 @@ def render_foreground(size: int) -> Image.Image:
     big = size * SS
     img = Image.new('RGBA', (big, big), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    s = big / 512 * 0.9
+    s = big / 512 * 0.95
     off = (big / 2 - 256 * s, big / 2 - 256 * s)
     draw_glyph(d, s, off)
     return img.resize((size, size), Image.LANCZOS)
@@ -56,7 +56,7 @@ def render_splash(width: int, height: int) -> Image.Image:
     img = Image.new('RGBA', (big_w, big_h), BLUE)
     d = ImageDraw.Draw(img)
     short = min(big_w, big_h)
-    s = short * 0.32 / 256
+    s = short * 0.34 / 256
     off = (big_w / 2 - 256 * s, big_h / 2 - 256 * s)
     draw_glyph(d, s, off)
     return img.convert('RGB').resize((width, height), Image.LANCZOS)

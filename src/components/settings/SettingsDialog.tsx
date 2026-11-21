@@ -22,11 +22,17 @@ import { usePwaInstall } from '../../pwa.js'
 import type { ChatModel, ThinkEffort } from '../../services/api/types.js'
 import {
   setEffort,
+  setMessageWidth,
   setModel,
+  setReadFontSize,
+  setReadLineHeight,
   setShowUsage,
   setThemePreference,
   setTtsVoice,
   useSettings,
+  type MessageWidth,
+  type ReadFontSize,
+  type ReadLineHeight,
   type ThemePreference,
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
@@ -101,6 +107,7 @@ const SettingsContent = () => {
           {section === 'general' ? (
             <>
               <ThemeSetting />
+              <ReadingSettings />
               <ModelSetting />
               <EffortSetting />
               <TtsVoiceSetting />
@@ -210,6 +217,67 @@ const useHistoryDelete = () => {
     },
     confirm,
   }
+}
+
+/** 阅读体验：正文字号、行距、消息宽度（只影响本地显示） */
+const ReadingSettings = () => {
+  const t = useTranslate()
+  const readFontSize = useSettings((state) => state.readFontSize)
+  const readLineHeight = useSettings((state) => state.readLineHeight)
+  const messageWidth = useSettings((state) => state.messageWidth)
+  return (
+    <div className={styles.reading}>
+      <div className={styles.readingTitle}>{t('settingsReading')}</div>
+      <SettingCell
+        label={t('settingsFontSize')}
+        status={null}
+        action={
+          <Select<ReadFontSize>
+            ariaLabel={t('settingsFontSize')}
+            value={readFontSize}
+            options={[
+              { value: 'small', label: t('settingsFontSizeSmall') },
+              { value: 'standard', label: t('settingsFontSizeStandard') },
+              { value: 'large', label: t('settingsFontSizeLarge') },
+            ]}
+            onChange={setReadFontSize}
+          />
+        }
+      />
+      <SettingCell
+        label={t('settingsLineHeight')}
+        status={null}
+        action={
+          <Select<ReadLineHeight>
+            ariaLabel={t('settingsLineHeight')}
+            value={readLineHeight}
+            options={[
+              { value: 'compact', label: t('settingsLineHeightCompact') },
+              { value: 'standard', label: t('settingsLineHeightStandard') },
+              { value: 'relaxed', label: t('settingsLineHeightRelaxed') },
+            ]}
+            onChange={setReadLineHeight}
+          />
+        }
+      />
+      <SettingCell
+        label={t('settingsMessageWidth')}
+        status={null}
+        action={
+          <Select<MessageWidth>
+            ariaLabel={t('settingsMessageWidth')}
+            value={messageWidth}
+            options={[
+              { value: 'compact', label: t('settingsMessageWidthCompact') },
+              { value: 'standard', label: t('settingsMessageWidthStandard') },
+              { value: 'wide', label: t('settingsMessageWidthWide') },
+            ]}
+            onChange={setMessageWidth}
+          />
+        }
+      />
+    </div>
+  )
 }
 
 /** 新会话默认模型：Flash 支持图片输入，Pro 推理更强但不支持图片 */

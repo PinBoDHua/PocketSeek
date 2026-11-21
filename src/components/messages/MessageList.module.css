@@ -1,3 +1,11 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .container {
   flex: 1;
   min-height: 0;
@@ -9,6 +17,11 @@
 }
 
 .scroll {
+  display: contents;
+}
+
+/* 输入框包装层不产生盒子：保持桌面端底部吸底与移动端固定输入区的原有布局 */
+.footerSlot {
   display: contents;
 }
 
@@ -34,4 +47,41 @@
   max-width: calc(100% - 40px);
   margin: 0 auto;
   padding-bottom: 24px;
+}
+
+/* 回到底部：浮在输入框上方、消息列右下角的中性圆形按钮 */
+.scrollToBottom {
+  position: absolute;
+  right: max(
+    16px,
+    calc((100% - var(--message-list-max-width)) / 2 + var(--message-list-padding-horizontal))
+  );
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  background-color: var(--dsw-specific-menu);
+  color: var(--dsw-alias-label-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+
+  &:active {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--dsw-alias-interactive-bg-hover);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dsw-alias-brand-text);
+    outline-offset: 2px;
+  }
 }

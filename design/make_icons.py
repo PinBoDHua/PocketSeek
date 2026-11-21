@@ -70,12 +70,12 @@ def render(size: int, *, maskable: bool) -> Image.Image:
 
     if maskable:
         d.rectangle([0, 0, big, big], fill=BLUE)
-        gs = s * 0.82
+        gs = s * 0.855
         off = (big * (1 - 0.82) / 2, big * (1 - 0.82) / 2)
         draw_glyph(d, gs, off)
     else:
-        d.rounded_rectangle([0, 0, big - 1, big - 1], radius=116 * s, fill=BLUE)
-        draw_glyph(d, s, (0.0, 0.0))
+        d.rounded_rectangle([0, 0, big - 1, big - 1], radius=112 * s, fill=BLUE)
+        draw_glyph(d, s * 1.0, (0.0, 0.0))
 
     return img.resize((size, size), Image.LANCZOS)
 

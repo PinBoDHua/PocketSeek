@@ -9,19 +9,19 @@ import styles from './VoiceButton.module.css'
  * 语音输入按钮。
  * 录音中为两层圆：外层半透明光圈 + 内层实心品牌色；
  * 外层先展开、内层随后放大，之后外层按固定节奏呼吸，与音量无关。
- * 按钮左侧显示「录音中 Ns」，窄屏不展示读秒。
+ * 录音状态与暂停/继续在输入区展示（见 ChatInput 的录音状态条）。
  */
 export const VoiceButton = ({
   status,
   disabled = false,
-  seconds,
+  paused = false,
   onClick,
 }: {
   status: VoiceInputStatus
   /** 非安全上下文中按钮置灰，tooltip 提示录音需要 HTTPS */
   disabled?: boolean
-  /** 本次录音已录秒数，录音中显示在按钮左侧 */
-  seconds: number
+  /** 录音已暂停：停止呼吸动画，避免误以为还在采集 */
+  paused?: boolean
   onClick: () => void
 }) => {
   const t = useTranslate()
@@ -36,43 +36,41 @@ export const VoiceButton = ({
         : t('voiceInput')
 
   return (
-    <>
-      {recording ? <span className={styles.timer}>{t('voiceInputTimer', { seconds })}</span> : null}
-      <Tooltip content={label}>
-        <button
-          type="button"
-          className={clsx(
-            styles.button,
-            recording && styles.recording,
-            disabled && styles.disabled
-          )}
-          aria-label={label}
-          aria-pressed={recording}
-          aria-disabled={disabled}
-          onClick={() => {
-            if (!disabled) {
-              onClick()
-            }
-          }}
-        >
-          {recording ? (
-            <span className={styles.active}>
-              <span className={styles.halo} />
-              <span className={styles.core} />
-              <span className={styles.outline}>
-                <IconMicOutline16 />
-              </span>
-              <span className={styles.glyph}>
-                <IconMicFill16 />
-              </span>
+    <Tooltip content={label}>
+      <button
+        type="button"
+        className={clsx(
+          styles.button,
+          recording && styles.recording,
+          paused && styles.paused,
+          disabled && styles.disabled
+        )}
+        aria-label={label}
+        aria-pressed={recording}
+        aria-disabled={disabled}
+        onClick={() => {
+          if (!disabled) {
+            onClick()
+          }
+        }}
+      >
+        {recording ? (
+          <span className={styles.active}>
+            <span className={styles.halo} />
+            <span className={styles.core} />
+            <span className={styles.outline}>
+              <IconMicOutline16 />
             </span>
-          ) : status === 'transcribing' ? (
-            <span className={styles.loading} />
-          ) : (
-            <IconMicOutline16 />
-          )}
-        </button>
-      </Tooltip>
-    </>
+            <span className={styles.glyph}>
+              <IconMicFill16 />
+            </span>
+          </span>
+        ) : status === 'transcribing' ? (
+          <span className={styles.loading} />
+        ) : (
+          <IconMicOutline16 />
+        )}
+      </button>
+    </Tooltip>
   )
 }

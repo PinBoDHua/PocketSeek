@@ -27,12 +27,76 @@ export const useDrafts = create<{ drafts: Map<string | null, Draft> }>(() => ({
   drafts: new Map(),
 }))
 
+/** 文字草稿额外持久化到 localStorage：刷新、切后台后回到页面可恢复（附件原件不持久化） */
+const STORAGE_PREFIX = 'pocketseek:draft:'
+const storageKey = (sessionId: string | null) => `${STORAGE_PREFIX}${sessionId ?? 'new'}`
+
+const persistText = (sessionId: string | null, text: string) => {
+  try {
+    if (text) {
+      localStorage.setItem(storageKey(sessionId), text)
+    } else {
+      localStorage.removeItem(storageKey(sessionId))
+    }
+  } catch {
+    // 存储不可用时只在内存中生效
+  }
+}
+
+/** 记录本次页面加载时恢复过草稿的会话，供输入框只提示一次 */
+const restoredDrafts = new Set<string | null>()
+
+const hydrateDrafts = () => {
+  const entries = new Map<string | null, Draft>()
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index)
+      if (!key?.startsWith(STORAGE_PREFIX)) {
+        continue
+      }
+      const text = localStorage.getItem(key) ?? ''
+      if (!text.trim()) {
+        continue
+      }
+      const raw = key.slice(STORAGE_PREFIX.length)
+      const sessionId = raw === 'new' ? null : raw
+      entries.set(sessionId, { text, attachments: [] })
+      restoredDrafts.add(sessionId)
+    }
+  } catch {
+    return
+  }
+  if (entries.size === 0) {
+    return
+  }
+  useDrafts.setState((state) => {
+    const drafts = new Map(state.drafts)
+    for (const [sessionId, draft] of entries) {
+      if (!drafts.has(sessionId)) {
+        drafts.set(sessionId, draft)
+      }
+    }
+    return { drafts }
+  })
+}
+
+hydrateDrafts()
+
+/** 本次打开页面时是否恢复过该会话的草稿；消费后不再重复提示 */
+export const consumeRestoredDraft = (sessionId: string | null): boolean => {
+  if (!restoredDrafts.has(sessionId)) {
+    return false
+  }
+  restoredDrafts.delete(sessionId)
+  return true
+}
+
 export const getDraft = (sessionId: string | null): Draft =>
   useDrafts.getState().drafts.get(sessionId) ?? EMPTY_DRAFT
 
-const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) =>
+const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) => {
+  const draft = update(useDrafts.getState().drafts.get(sessionId) ?? EMPTY_DRAFT)
   useDrafts.setState((state) => {
-    const draft = update(state.drafts.get(sessionId) ?? EMPTY_DRAFT)
     const drafts = new Map(state.drafts)
     if (draft.text || draft.attachments.length > 0) {
       drafts.set(sessionId, draft)
@@ -41,6 +105,8 @@ const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) 
     }
     return { drafts }
   })
+  persistText(sessionId, draft.text)
+}
 
 export const setDraftText = (sessionId: string | null, text: string) =>
   updateDraft(sessionId, (draft) => ({ ...draft, text }))
@@ -145,4 +211,16 @@ export const clearAllDrafts = () => {
     draft.attachments.forEach((attachment) => cancelUpload(attachment.id))
   }
   useDrafts.setState({ drafts: new Map() })
+  try {
+    const keys: string[] = []
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index)
+      if (key?.startsWith(STORAGE_PREFIX)) {
+        keys.push(key)
+      }
+    }
+    keys.forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // 存储不可用时只清理内存
+  }
 }

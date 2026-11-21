@@ -63,9 +63,27 @@
   }
 }
 
+/* 图片缩略图本身是预览入口：铺满 64px 方格，点击打开全屏预览 */
+.thumbnail {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+
+  &:focus-visible {
+    outline: 2px solid var(--dsw-alias-brand-primary);
+    outline-offset: -3px;
+  }
+}
+
 .uploading {
   position: absolute;
   inset: 0;
+  /* 蒙层只做状态提示，点击穿透到缩略图，上传中也能预览 */
+  pointer-events: none;
   background-color: rgba(0, 0, 0, 0.3);
 
   &::after {
@@ -213,6 +231,65 @@
   }
 }
 
+/*
+ * 录音状态条：接管输入区，展示读秒、滚动波形与暂停/继续。
+ * 与旧频谱一致地垂直居中，多行草稿时高度不变、不产生布局跳动。
+ */
+.voicePanel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding-right: 6px;
+  padding-left: 16px;
+}
+
+.voiceLabel {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--dsw-alias-label-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 暂停/继续：带文字提示的胶囊按钮，40px 可点高度，移动端优先 */
+.voicePause {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 20px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  background-color: transparent;
+  cursor: pointer;
+  user-select: none;
+
+  &:active {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--dsw-alias-interactive-bg-hover);
+    }
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--dsw-alias-button-primary-fill);
+  }
+}
+
 .mirror {
   visibility: hidden;
   pointer-events: none;
@@ -343,4 +420,9 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+}
+
+/* 发送成功：按钮短暂切换为对勾，不额外弹 toast 打断阅读 */
+.sent {
+  cursor: default;
 }

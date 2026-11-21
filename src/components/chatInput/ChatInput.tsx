@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   IconCheckOutline16,
   IconGlobeLanguageOutline14,
@@ -9,6 +9,7 @@ import {
   IconThinkOutline14,
 } from '../base/icons.js'
 import { IconCameraOutline16 } from '../base/brandIcons.js'
+import { IconPauseFill16, IconPlayFill16 } from '../base/actionIcons.js'
 import { Menu, type MenuOption } from '../base/Menu.js'
 import { setEffort, setSearch, useSettings } from '../../services/settings.js'
 import type { ThinkEffort } from '../../services/api/types.js'
@@ -17,6 +18,7 @@ import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
   addDraftFiles,
+  consumeRestoredDraft,
   EMPTY_DRAFT,
   getDraft,
   prepareDraftMessage,
@@ -61,6 +63,14 @@ const EFFORT_SHORT_LABELS: Record<ThinkEffort, TranslationKey> = {
 
 const EFFORTS: ThinkEffort[] = ['none', 'low', 'high', 'max']
 
+/** 发送成功后的对勾反馈时长：只给一次轻量的确认，不弹 toast */
+const SENT_FEEDBACK_MS = 600
+/**
+ * 新建会话发送成功的时间戳。从首页发送后输入框会随会话切换重建，
+ * 新实例据此把剩余的对勾时长显示完，避免反馈在切换瞬间丢失。
+ */
+let lastSentAt = 0
+
 /** Pro 不支持视觉输入：按 MIME 与扩展名双重判断，避免相机直拍的临时文件被漏掉 */
 const isImageFile = (file: File) =>
   file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(file.name)
@@ -82,6 +92,37 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
+  const [sent, setSent] = useState(false)
+  const sentTimerRef = useRef(0)
+
+  const showSentFeedback = useCallback((duration: number) => {
+    window.clearTimeout(sentTimerRef.current)
+    setSent(true)
+    sentTimerRef.current = window.setTimeout(() => {
+      sentTimerRef.current = 0
+      setSent(false)
+    }, duration)
+  }, [])
+
+  // 新会话发送后输入框会随会话切换重建，由新实例把剩余的对勾时长显示完。
+  // 新建会话（首页）本身不会收到跨实例反馈，避免切换页面时误显示。
+  useEffect(() => {
+    const remaining =
+      sessionId === null || lastSentAt === 0 ? 0 : lastSentAt + SENT_FEEDBACK_MS - Date.now()
+    lastSentAt = 0
+    if (remaining > 0) {
+      showSentFeedback(remaining)
+    }
+  }, [sessionId, showSentFeedback])
+
+  // 草稿恢复提示：只在本次页面加载恢复过草稿的会话上出现一次
+  useEffect(() => {
+    if (consumeRestoredDraft(sessionId)) {
+      showToast({ key: 'draftRestored' })
+    }
+  }, [sessionId])
+
+  useEffect(() => () => window.clearTimeout(sentTimerRef.current), [])
 
   useLayoutEffect(() => {
     const toggles = togglesRef.current
@@ -169,7 +210,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     [cancelVoice]
   )
 
-  // 移动端录音时用频谱替代输入框内容
+  // 录音中由状态条与滚动波形接管输入区
   const recording = voice.status === 'recording'
 
   // 排队、上传中或上传失败的附件都留在输入框，全部上传成功后才能发送
@@ -187,6 +228,12 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     if (!ensureApiKey() || !sendMessage(sessionId)) {
       return
     }
+    // 发送成功：草稿已由 store 清空并同步 localStorage，按钮短暂显示对勾。
+    // 只有从新建会话（首页）发送会重建输入框，需要记下时间让新实例接着显示。
+    if (sessionId === null) {
+      lastSentAt = Date.now()
+    }
+    showSentFeedback(SENT_FEEDBACK_MS)
     stopReadAloud()
     if (isMobile) {
       textareaRef.current?.blur()
@@ -208,7 +255,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       <div className={styles.textareaWrapper}>
         <textarea
           ref={textareaRef}
-          className={clsx(styles.textarea, recording && isMobile && styles.textareaHidden)}
+          className={clsx(styles.textarea, recording && styles.textareaHidden)}
           placeholder={t('chatInputPlaceholderChat')}
           rows={2}
           // 移动端不自动聚焦，避免一打开就弹出键盘
@@ -237,7 +284,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             }
           }}
         />
-        {recording && isMobile ? <Spectrum getAnalyser={voice.getAnalyser} /> : null}
+        {recording ? (
+          <div className={styles.voicePanel}>
+            <span className={styles.voiceLabel}>
+              {voice.paused ? t('voicePaused') : t('voiceInputTimer', { seconds: voice.seconds })}
+            </span>
+            <Spectrum getAnalyser={voice.getAnalyser} paused={voice.paused} />
+            {voice.canPause ? (
+              <button
+                type="button"
+                className={styles.voicePause}
+                aria-label={voice.paused ? t('voiceResume') : t('voicePause')}
+                onClick={voice.togglePause}
+              >
+                {voice.paused ? <IconPlayFill16 /> : <IconPauseFill16 />}
+                {voice.paused ? t('voiceResume') : t('voicePause')}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className={styles.mirror} aria-hidden>
           {`${text}\n`}
         </div>
@@ -276,7 +341,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           <VoiceButton
             status={voice.status}
             disabled={!voice.available}
-            seconds={voice.seconds}
+            paused={voice.paused}
             onClick={() => {
               if (
                 voice.status !== 'idle' ||
@@ -326,7 +391,16 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               event.target.value = ''
             }}
           />
-          {streaming && sessionId ? (
+          {sent ? (
+            <button
+              type="button"
+              className={clsx(styles.sendButton, styles.sent)}
+              aria-label={t('send')}
+              disabled
+            >
+              <IconCheckOutline16 />
+            </button>
+          ) : streaming && sessionId ? (
             <button
               type="button"
               className={styles.sendButton}

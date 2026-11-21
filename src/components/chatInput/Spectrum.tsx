@@ -1,28 +1,35 @@
+import clsx from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 import styles from './Spectrum.module.css'
 
-/** 与设计稿一致：2px 宽、3px 间距，静止 5px，最高 36px */
+/** 与设计稿一致：2px 宽、3px 间距，静止 5px */
 const BAR_WIDTH = 2
 const BAR_GAP = 3
 const BAR_MIN = 5
-const BAR_MAX = 36
+const BAR_MAX = 32
 const MAX_BARS = 60
-/** 人声频段，按对数分布到各柱 */
-const FREQ_LOW = 100
-const FREQ_HIGH = 4000
-/** 低于底噪不起跳，避免环境噪声让柱子常亮 */
-const DB_FLOOR = -80
-const DB_CEIL = -25
-
-/** 人声高频能量自然衰减，按倍频程补偿，避免右侧常年贴底 */
-const TILT_DB_PER_OCTAVE = 4
+/** 每秒从右向左滚过一格的振幅样本；60Hz 屏幕正好每帧一格 */
+const SAMPLES_PER_SECOND = 60
+/** 时域 RMS 到柱高的映射区间：低于底噪不起跳，接近满幅封顶 */
+const RMS_FLOOR = 0.005
+const RMS_CEIL = 0.3
 
 /**
- * 录音中的实时频谱：从左到右依次是低频到高频，按对数分段。
- * 每帧直接改 transform，不触发 React 渲染。
+ * 录音中的滚动振幅波形：每帧从 AnalyserNode 取时域数据算 RMS，
+ * 新样本从右侧进入、历史样本向左滚动，形成一条连续的声音轨迹。
+ * 每帧只改 transform，不触发 React 渲染；暂停时停止取样并压暗波形。
  */
-export const Spectrum = ({ getAnalyser }: { getAnalyser: () => AnalyserNode | null }) => {
+export const Spectrum = ({
+  getAnalyser,
+  paused = false,
+}: {
+  getAnalyser: () => AnalyserNode | null
+  /** 录音暂停时定格当前波形 */
+  paused?: boolean
+}) => {
   const rootRef = useRef<HTMLDivElement>(null)
+  /** 采样历史在暂停/继续之间保留，恢复后接着滚动而不是从头开始 */
+  const historyRef = useRef<Float32Array | null>(null)
   const [count, setCount] = useState(0)
 
   // 按容器宽度决定柱数
@@ -41,92 +48,64 @@ export const Spectrum = ({ getAnalyser }: { getAnalyser: () => AnalyserNode | nu
 
   useEffect(() => {
     const root = rootRef.current
-    if (!root || count < 1) {
+    if (!root || count < 1 || paused) {
       return
     }
     const bars = Array.from(root.children) as HTMLElement[]
-    const levels = new Float32Array(count)
-    const targets = new Float32Array(count)
-    const tilts = new Float32Array(count)
-    for (let index = 0; index < count; index += 1) {
-      tilts[index] = TILT_DB_PER_OCTAVE * Math.log2(FREQ_HIGH / FREQ_LOW) * (index / count)
-    }
-    let data = new Float32Array(0)
-    let ranges: Range[] = []
-    let rangeKey = ''
+    const history =
+      historyRef.current?.length === count ? historyRef.current : new Float32Array(count)
+    historyRef.current = history
+    const stepMs = 1000 / SAMPLES_PER_SECOND
+    let samples = new Float32Array(0)
     let frame = 0
+    let last = performance.now()
+    let carry = 0
+    let level = 0
 
-    const draw = () => {
+    const draw = (now: number) => {
       frame = requestAnimationFrame(draw)
+      carry += Math.min(now - last, 200)
+      last = now
+      if (carry < stepMs) {
+        return
+      }
+      // 高刷屏按时间补帧，保证不同刷新率下滚动速度一致
+      const steps = Math.min(3, Math.floor(carry / stepMs))
+      carry -= steps * stepMs
       const analyser = getAnalyser()
+      let target = 0
       if (analyser) {
-        if (data.length !== analyser.frequencyBinCount) {
-          data = new Float32Array(analyser.frequencyBinCount)
+        if (samples.length !== analyser.fftSize) {
+          samples = new Float32Array(analyser.fftSize)
         }
-        const key = `${analyser.context.sampleRate}:${analyser.fftSize}`
-        if (key !== rangeKey) {
-          rangeKey = key
-          ranges = buildRanges(count, analyser.context.sampleRate / analyser.fftSize, data.length)
+        analyser.getFloatTimeDomainData(samples)
+        let sum = 0
+        for (let index = 0; index < samples.length; index += 1) {
+          sum += samples[index] * samples[index]
         }
-        analyser.getFloatFrequencyData(data)
+        const rms = Math.sqrt(sum / samples.length)
+        const normalized = Math.min(1, Math.max(0, (rms - RMS_FLOOR) / (RMS_CEIL - RMS_FLOOR)))
+        // 开方抬高小音量，让普通说话也有明显起伏
+        target = Math.sqrt(normalized)
       }
+      level += (target - level) * 0.5
+      history.copyWithin(0, steps)
+      history.fill(level, count - steps)
       for (let index = 0; index < count; index += 1) {
-        let target = 0
-        if (analyser) {
-          const { from, to, center } = ranges[index]
-          let peak = -Infinity
-          if (to - from <= 1) {
-            // 频段窄于一个 bin：在相邻 bin 之间线性插值，避免低频几根柱子完全同步
-            const base = Math.min(data.length - 2, Math.floor(center))
-            const weight = center - base
-            peak = data[base] * (1 - weight) + data[base + 1] * weight
-          } else {
-            for (let bin = from; bin < to; bin += 1) {
-              peak = Math.max(peak, data[bin])
-            }
-          }
-          const db = peak + tilts[index]
-          target = Math.min(1, Math.max(0, (db - DB_FLOOR) / (DB_CEIL - DB_FLOOR)))
-        }
-        targets[index] = target
-      }
-      for (let index = 0; index < count; index += 1) {
-        // 和相邻频段做加权平均，填平谐波之间的空隙
-        const prev = targets[Math.max(0, index - 1)]
-        const next = targets[Math.min(count - 1, index + 1)]
-        const target = (prev + targets[index] * 2 + next) / 4
-        // 起几乎即时，落稍缓，避免闪烁又不拖尾
-        levels[index] += (target - levels[index]) * (target > levels[index] ? 0.8 : 0.35)
-        const height = BAR_MIN + (BAR_MAX - BAR_MIN) * levels[index]
-        bars[index].style.transform = `scaleY(${height / BAR_MIN})`
+        const height = BAR_MIN + (BAR_MAX - BAR_MIN) * history[index]
+        bars[index].style.transform = `scaleY(${Math.round((height / BAR_MIN) * 100) / 100})`
       }
     }
 
     frame = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(frame)
-  }, [count, getAnalyser])
+  }, [count, getAnalyser, paused])
 
   return (
-    <div ref={rootRef} className={styles.spectrum} aria-hidden>
+    <div ref={rootRef} className={clsx(styles.spectrum, paused && styles.paused)} aria-hidden>
       {Array.from({ length: count }, (_, index) => (
         <span key={index} className={styles.bar} />
       ))}
     </div>
   )
-}
-
-type Range = { from: number; to: number; center: number }
-
-/** 把 [FREQ_LOW, FREQ_HIGH] 按对数切成 n 段，返回每段的 bin 区间及中心位置（以 bin 为单位） */
-const buildRanges = (n: number, binWidth: number, binCount: number) => {
-  const ranges: Range[] = []
-  const ratio = FREQ_HIGH / FREQ_LOW
-  for (let index = 0; index < n; index += 1) {
-    const low = FREQ_LOW * ratio ** (index / n)
-    const high = FREQ_LOW * ratio ** ((index + 1) / n)
-    const from = Math.min(binCount - 1, Math.floor(low / binWidth))
-    const to = Math.min(binCount, Math.max(from + 1, Math.ceil(high / binWidth)))
-    ranges.push({ from, to, center: Math.sqrt(low * high) / binWidth })
-  }
-  return ranges
 }

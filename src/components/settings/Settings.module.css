@@ -441,8 +441,7 @@
   }
 }
 
-/* 关于页：品牌名、非官方声明与版本号 */
-.about {
+/* 关于页：品牌名、非官方声明与版本号 */.about {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -478,4 +477,18 @@
   color: var(--dsw-alias-brand-text);
   font-size: 12px;
   line-height: 18px;
+}
+
+/* 阅读体验分组标题 */
+.reading {
+  display: flex;
+  flex-direction: column;
+}
+
+.readingTitle {
+  margin: 18px 0 2px;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
 }

@@ -9,6 +9,11 @@ export type Locale = 'zh-CN'
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+/** 阅读体验：正文字号 / 行距 / 消息宽度 */
+export type ReadFontSize = 'small' | 'standard' | 'large'
+export type ReadLineHeight = 'compact' | 'standard' | 'relaxed'
+export type MessageWidth = 'compact' | 'standard' | 'wide'
+
 /**
  * 本机设置，全部保存在 localStorage：API Key、主题、位置、朗读音色、
  * 默认模型、思考档位、智能搜索、用量脚注、侧边栏收起状态。
@@ -26,6 +31,10 @@ type Settings = {
   search: boolean
   /** 回复下方的用量与估算费用脚注 */
   showUsage: boolean
+  /** 阅读体验 */
+  readFontSize: ReadFontSize
+  readLineHeight: ReadLineHeight
+  messageWidth: MessageWidth
   siderCollapsed: boolean
 }
 
@@ -38,6 +47,9 @@ const KEYS = {
   effort: 'pocketseek:effort',
   search: 'pocketseek:search',
   showUsage: 'pocketseek:show-usage',
+  readFontSize: 'pocketseek:read-font-size',
+  readLineHeight: 'pocketseek:read-line-height',
+  messageWidth: 'pocketseek:message-width',
   siderCollapsed: 'pocketseek:sider-collapsed',
 } as const
 
@@ -100,6 +112,12 @@ const initialEffort = (): ThinkEffort => {
   return saved === 'none' || saved === 'low' || saved === 'high' || saved === 'max' ? saved : 'high'
 }
 
+/** 三选一设置：值不在候选内时回退默认，避免旧数据或手改 localStorage 破坏界面 */
+const initialChoice = <T extends string>(key: string, options: readonly T[], fallback: T): T => {
+  const saved = read(key)
+  return options.includes(saved as T) ? (saved as T) : fallback
+}
+
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
   locale: 'zh-CN',
@@ -110,6 +128,13 @@ export const useSettings = create<Settings>(() => ({
   effort: initialEffort(),
   search: read(KEYS.search) === 'true',
   showUsage: read(KEYS.showUsage) !== 'false',
+  readFontSize: initialChoice(KEYS.readFontSize, ['small', 'standard', 'large'], 'standard'),
+  readLineHeight: initialChoice(
+    KEYS.readLineHeight,
+    ['compact', 'standard', 'relaxed'],
+    'standard'
+  ),
+  messageWidth: initialChoice(KEYS.messageWidth, ['compact', 'standard', 'wide'], 'standard'),
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
 }))
 
@@ -152,6 +177,21 @@ export const setSearch = (search: boolean) => {
 export const setShowUsage = (showUsage: boolean) => {
   write(KEYS.showUsage, String(showUsage))
   useSettings.setState({ showUsage })
+}
+
+export const setReadFontSize = (readFontSize: ReadFontSize) => {
+  write(KEYS.readFontSize, readFontSize)
+  useSettings.setState({ readFontSize })
+}
+
+export const setReadLineHeight = (readLineHeight: ReadLineHeight) => {
+  write(KEYS.readLineHeight, readLineHeight)
+  useSettings.setState({ readLineHeight })
+}
+
+export const setMessageWidth = (messageWidth: MessageWidth) => {
+  write(KEYS.messageWidth, messageWidth)
+  useSettings.setState({ messageWidth })
 }
 
 export const setSiderCollapsed = (siderCollapsed: boolean) => {

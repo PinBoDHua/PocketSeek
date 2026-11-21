@@ -56,6 +56,17 @@ export const App = () => {
     document.documentElement.lang = locale
   }, [locale])
 
+  // 阅读体验设置写到 <html data-*> 上，由 global.css / markdown.css 消费
+  const readFontSize = useSettings((state) => state.readFontSize)
+  const readLineHeight = useSettings((state) => state.readLineHeight)
+  const messageWidth = useSettings((state) => state.messageWidth)
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.readSize = readFontSize
+    root.dataset.readLine = readLineHeight
+    root.dataset.msgWidth = messageWidth
+  }, [readFontSize, readLineHeight, messageWidth])
+
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(bindChatPersistence, [])

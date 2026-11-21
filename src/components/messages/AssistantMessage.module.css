@@ -11,6 +11,11 @@
   }
 }
 
+/* 长按菜单的挂载层：不产生盒子，保持正文原有排版与间距 */
+.longPressArea {
+  display: contents;
+}
+
 .waiting {
   display: flex;
   align-items: center;

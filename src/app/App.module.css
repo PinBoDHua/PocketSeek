@@ -4,6 +4,23 @@
   display: flex;
   overflow: hidden;
   background-color: var(--dsw-alias-bg-base);
+  /* 启动时 200ms 淡入：克制，不做位移/缩放 */
+  animation: app-fade-in 200ms var(--ds-ease-in-out);
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    animation: none;
+  }
 }
 
 .main {

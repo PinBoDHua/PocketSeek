@@ -14,6 +14,18 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     backgroundColor: '#ffffff',
   },
+  plugins: {
+    // 启动页：原生 splash 退场用 200ms 淡出，随后 Web 层再做一次极轻的淡入
+    SplashScreen: {
+      // 让 splash 至少停留 250ms，避免 WebView 首帧前的白屏闪烁；退场 200ms 淡出
+      launchShowDuration: 250,
+      launchAutoHide: true,
+      launchFadeOutDuration: 200,
+      backgroundColor: '#FFFFFF',
+      androidSplashResourceName: 'splash',
+      showSpinner: false,
+    },
+  },
 }
 
 export default config

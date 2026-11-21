@@ -1,6 +1,7 @@
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
+import { EmptyArt } from './EmptyArt.js'
 import { MobileHeader } from './MobileHeader.js'
 import { setDraftText } from '../../services/chat/drafts.js'
 import { sendMessage } from '../../services/chat/store.js'
@@ -29,7 +30,10 @@ export const Welcome = () => {
     <div className={styles.container}>
       {isMobile ? <MobileHeader /> : null}
       <div className={styles.welcome}>
-        <div className={styles.greeting}>{t('welcomeMessageChat250808')}</div>
+        <div className={styles.hero}>
+          <EmptyArt />
+          <div className={styles.greeting}>{t('welcomeMessageChat250808')}</div>
+        </div>
         <div className={styles.prompts}>
           {QUICK_PROMPTS.map((key) => (
             <button

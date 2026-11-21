@@ -15,8 +15,10 @@ import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
 import { ReadAloudButton } from './ReadAloudButton.js'
 import { CopyButton } from './CopyButton.js'
+import { MessageTime } from './MessageTime.js'
 import { ReplyArea } from './ReplyArea.js'
 import { UsageFootnote } from './UsageFootnote.js'
+import { useMessageMenu } from './useMessageMenu.js'
 import { useReplyView } from './useReplyView.js'
 import {
   BranchSwitcher,
@@ -57,6 +59,19 @@ export const AssistantMessage = memo(function AssistantMessage({
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
   const summaryEntry = `${message.id}-summary`
+  // 长按菜单只复制 / 引用正文，思考内容不进入剪贴板与草稿
+  const answerText = answer?.text ?? ''
+  const templateText = notice?.presentation === 'response' ? notice.text : ''
+  const regenerate = () => {
+    stopReadAloud()
+    regenerateReply(sessionId, message.id)
+  }
+  const menu = useMessageMenu({
+    sessionId,
+    text: answerText || templateText,
+    // 与重新生成按钮保持一致：streaming / busy / 安全拒绝时不可用
+    onRegenerate: busy || refused ? undefined : regenerate,
+  })
   return (
     <div className={styles.message}>
       {refused ? null : (
@@ -67,15 +82,28 @@ export const AssistantMessage = memo(function AssistantMessage({
           hasResponse={!!responseText}
         />
       )}
-      {answer ? (
-        <Markdown
-          className="ds-assistant-message-main-content"
-          content={answer.markdown}
-          loading={streaming}
-          cacheKey={message.id}
-          disableLink={false}
-          sources={view.sources}
-        />
+      {answer || templateText ? (
+        <div className={styles.longPressArea} {...menu.handlers}>
+          {answer ? (
+            <Markdown
+              className="ds-assistant-message-main-content"
+              content={answer.markdown}
+              loading={streaming}
+              cacheKey={message.id}
+              disableLink={false}
+              sources={view.sources}
+            />
+          ) : null}
+          {templateText ? (
+            <Markdown
+              className="ds-assistant-message-main-content"
+              content={templateText}
+              loading={false}
+              cacheKey={`${message.id}-template`}
+              disableLink={false}
+            />
+          ) : null}
+        </div>
       ) : null}
       {waiting ? (
         <div className={styles.waiting}>
@@ -84,15 +112,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           ))}
         </div>
       ) : null}
-      {notice?.presentation === 'response' ? (
-        <Markdown
-          className="ds-assistant-message-main-content"
-          content={notice.text}
-          loading={false}
-          cacheKey={`${message.id}-template`}
-          disableLink={false}
-        />
-      ) : notice ? (
+      {notice && notice.presentation !== 'response' ? (
         <div className={styles.notice}>
           <IconWarningOutline16 />
           <span>
@@ -142,6 +162,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       {streaming ? null : <UsageFootnote message={message} />}
       {streaming ? null : (
         <div className={styles.bottom}>
+          <MessageTime createdAt={message.createdAt} />
           <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />
           <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
             {copyText ? <CopyButton text={copyText} /> : null}
@@ -153,10 +174,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               tooltip={t('regenerate')}
               tooltipPlacement="bottom"
               disabled={busy || refused}
-              onClick={() => {
-                stopReadAloud()
-                regenerateReply(sessionId, message.id)
-              }}
+              onClick={regenerate}
             />
           </div>
           {isLast && canContinueReply(message) ? (
@@ -175,6 +193,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           ) : null}
         </div>
       )}
+      {menu.menu}
     </div>
   )
 })

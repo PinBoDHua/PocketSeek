@@ -17,6 +17,13 @@ export type Recording = {
   cancel: () => void
   /** 频谱分析节点，只读；采样率与录音一致 */
   analyser: AnalyserNode
+  /**
+   * 暂停采集：暂停期间的声音不写入 WAV，时长上限也不计入。
+   * 环境不支持暂停时为 null，调用方应隐藏暂停入口。
+   */
+  pause: (() => void) | null
+  /** 继续采集；未暂停时调用无副作用 */
+  resume: (() => void) | null
 }
 
 /** 开始录音；到达时长上限时调用 onLimit，由调用方决定何时 stop */
@@ -63,8 +70,10 @@ export const startRecording = async (onLimit: () => void): Promise<Recording> =>
     const chunks: Float32Array[] = []
     let length = 0
     let limited = false
+    /** 暂停时跳过采集回调：暂停期间的声音不进入 WAV，恢复后从当前时刻继续 */
+    let paused = false
     processor.onaudioprocess = (event) => {
-      if (limited) {
+      if (limited || paused) {
         return
       }
       chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)))
@@ -85,11 +94,18 @@ export const startRecording = async (onLimit: () => void): Promise<Recording> =>
 
     return {
       stop: async () => {
+        paused = false
         release()
         return length === 0 ? null : encodeWav(chunks, length)
       },
       cancel: release,
       analyser,
+      pause: () => {
+        paused = true
+      },
+      resume: () => {
+        paused = false
+      },
     }
   } catch (error) {
     release()

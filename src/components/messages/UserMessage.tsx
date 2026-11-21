@@ -1,6 +1,6 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { IconEditOutline16 } from '../base/icons.js'
 import { getFileViewType, isImage } from '../../services/attachments.js'
@@ -16,7 +16,9 @@ import {
   type SelectMessageVersion,
 } from './BranchSwitcher.js'
 import { MessageFile } from './MessageFile.js'
+import { MessageTime } from './MessageTime.js'
 import { CopyButton } from './CopyButton.js'
+import { useMessageMenu } from './useMessageMenu.js'
 import styles from './UserMessage.module.css'
 
 export const UserMessage = memo(function UserMessage({
@@ -60,6 +62,18 @@ export const UserMessage = memo(function UserMessage({
       setEditing(false)
     }
   }
+
+  // 气泡上的编辑入口与长按菜单共用：同一份 draft 与编辑态
+  const openEditor = useCallback(() => {
+    setDraft(message.content)
+    setEditing(true)
+  }, [message.content])
+
+  const menu = useMessageMenu({
+    sessionId,
+    text: message.content,
+    onEdit: busy ? undefined : openEditor,
+  })
 
   return (
     <div className={clsx(styles.container, isFirst && styles.isFirst)}>
@@ -114,8 +128,13 @@ export const UserMessage = memo(function UserMessage({
         </div>
       ) : (
         <>
-          {message.content ? <div className={styles.bubble}>{message.content}</div> : null}
+          {message.content ? (
+            <div className={styles.bubble} {...menu.handlers}>
+              {message.content}
+            </div>
+          ) : null}
           <div className={styles.bottom}>
+            <MessageTime createdAt={message.createdAt} />
             <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
               {message.content ? <CopyButton text={message.content} /> : null}
               <IconButton
@@ -123,16 +142,14 @@ export const UserMessage = memo(function UserMessage({
                 tooltip={t('editMessage')}
                 tooltipPlacement="bottom"
                 disabled={busy}
-                onClick={() => {
-                  setDraft(message.content)
-                  setEditing(true)
-                }}
+                onClick={openEditor}
               />
             </div>
             <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />
           </div>
         </>
       )}
+      {menu.menu}
     </div>
   )
 })

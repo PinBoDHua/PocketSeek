@@ -28,11 +28,17 @@ const describeRecordingError = (error: unknown): TranslationMessage => {
 /**
  * 语音输入（oneshot）：点击开始录音，再次点击结束并转写，结果交给 onText 填入输入框。
  * 转写中再次点击取消。录满 120 秒自动结束。
+ * 录音中可暂停/继续：暂停期间不计时、不写入音频，结束转写前会先恢复采集。
  */
 export const useVoiceInput = (onText: (text: string) => void) => {
   const [status, setStatus] = useState<VoiceInputStatus>('idle')
-  /** 本次录音已录秒数，只在录音中递增 */
+  /** 本次录音的有效时长（暂停时间不计），只在录音中递增 */
   const [seconds, setSeconds] = useState(0)
+  /** 录音已暂停：计时冻结、波形定格 */
+  const [paused, setPaused] = useState(false)
+  /** 当前录音器是否支持暂停；不支持的环境退化为只能结束录音 */
+  const [canPause, setCanPause] = useState(false)
+  const pausedRef = useRef(false)
   const recordingRef = useRef<Recording | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const operationRef = useRef(0)
@@ -49,6 +55,9 @@ export const useVoiceInput = (onText: (text: string) => void) => {
 
   const cancel = useCallback(() => {
     cancelOperation()
+    pausedRef.current = false
+    setPaused(false)
+    setCanPause(false)
     setStatus('idle')
   }, [cancelOperation])
 
@@ -65,8 +74,13 @@ export const useVoiceInput = (onText: (text: string) => void) => {
     try {
       let audio: Blob | null
       try {
+        // 暂停中结束录音时先恢复采集，避免 WAV 尾部缺失当前时刻的声音。
+        recording.resume?.()
         audio = await recording.stop()
       } finally {
+        pausedRef.current = false
+        setPaused(false)
+        setCanPause(false)
         recording.cancel()
       }
       if (operationRef.current !== operation || !audio) {
@@ -109,6 +123,9 @@ export const useVoiceInput = (onText: (text: string) => void) => {
       return
     }
     const operation = ++operationRef.current
+    pausedRef.current = false
+    setPaused(false)
+    setCanPause(false)
     setStatus('recording')
     try {
       const recording = await startRecording(() => {
@@ -122,6 +139,7 @@ export const useVoiceInput = (onText: (text: string) => void) => {
         return
       }
       recordingRef.current = recording
+      setCanPause(recording.pause !== null && recording.resume !== null)
     } catch (error) {
       if (operationRef.current === operation) {
         setStatus('idle')
@@ -130,17 +148,42 @@ export const useVoiceInput = (onText: (text: string) => void) => {
     }
   }, [status, finish, cancel])
 
-  useEffect(() => {
-    if (status !== 'recording') {
+  /** 暂停/继续当前录音；录音器不支持暂停时忽略 */
+  const togglePause = useCallback(() => {
+    const recording = recordingRef.current
+    if (status !== 'recording' || !recording?.pause || !recording.resume) {
       return
     }
-    const startedAt = Date.now()
+    const next = !pausedRef.current
+    if (next) {
+      recording.pause()
+    } else {
+      recording.resume()
+    }
+    pausedRef.current = next
+    setPaused(next)
+  }, [status])
+
+  useEffect(() => {
+    if (status !== 'recording') {
+      pausedRef.current = false
+      setPaused(false)
+      setSeconds(0)
+      return
+    }
     setSeconds(0)
-    // 半秒刷新一次，让显示的秒数与实际录音时长保持一致
-    const timer = setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt) / 1000))
-    }, 500)
-    return () => clearInterval(timer)
+    let last = Date.now()
+    let total = 0
+    // 250ms 刷新一次；暂停期间不累计，与录音器实际写入的音频长度保持一致。
+    const timer = window.setInterval(() => {
+      const now = Date.now()
+      if (!pausedRef.current) {
+        total += now - last
+        setSeconds(Math.floor(total / 1000))
+      }
+      last = now
+    }, 250)
+    return () => window.clearInterval(timer)
   }, [status])
 
   useEffect(() => cancelOperation, [cancelOperation])
@@ -148,5 +191,15 @@ export const useVoiceInput = (onText: (text: string) => void) => {
   /** 当前录音的频谱分析节点，未录音时为 null */
   const getAnalyser = useCallback(() => recordingRef.current?.analyser ?? null, [])
 
-  return { status, seconds, getAnalyser, toggle, cancel, available: AVAILABLE }
+  return {
+    status,
+    seconds,
+    paused,
+    canPause,
+    getAnalyser,
+    toggle,
+    togglePause,
+    cancel,
+    available: AVAILABLE,
+  }
 }

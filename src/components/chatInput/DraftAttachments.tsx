@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useUploads, type UploadTask } from '../../services/attachments.js'
 import type { DraftAttachment } from '../../services/chat/drafts.js'
@@ -7,6 +7,7 @@ import { IconCloseFill14, IconRefreshOutline16 } from '../base/icons.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
 import { useFileView } from '../files/useFileView.js'
+import { AttachmentPreview } from './AttachmentPreview.js'
 import styles from './ChatInput.module.css'
 
 const UPLOADING: UploadTask = { status: 'uploading' }
@@ -49,6 +50,7 @@ const AttachmentItem = ({
   onRemove: () => void
 }) => {
   const t = useTranslate()
+  const [previewing, setPreviewing] = useState(false)
   const { image, url, link } = useFileView(item.file, item.file.name)
   const task = useUploads((state) => state.tasks[item.id] ?? UPLOADING)
   const status = task.status
@@ -65,7 +67,15 @@ const AttachmentItem = ({
       className={clsx(styles.attachment, failed && styles.attachmentFailed)}
       title={error ?? item.file.name}
     >
-      {link && status === 'done' ? <a {...link}>{preview}</a> : preview}
+      <button
+        type="button"
+        className={styles.thumbnail}
+        aria-label={t('attachmentPreview')}
+        title={t('attachmentPreview')}
+        onClick={() => setPreviewing(true)}
+      >
+        {preview}
+      </button>
       {status === 'uploading' ? <div className={styles.uploading} /> : null}
       {failed && retry ? (
         <Tooltip content={retryLabel}>
@@ -88,6 +98,13 @@ const AttachmentItem = ({
       >
         <IconCloseFill14 />
       </button>
+      {previewing ? (
+        <AttachmentPreview
+          file={item.file}
+          name={item.file.name}
+          onClose={() => setPreviewing(false)}
+        />
+      ) : null}
     </div>
   ) : (
     <FileCard

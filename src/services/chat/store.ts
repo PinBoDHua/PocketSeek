@@ -20,6 +20,7 @@ import {
   getDraft,
   prepareDraftMessage,
 } from './drafts.js'
+import { removePins } from './pins.js'
 import { createLatestReminder } from './latestReminder.js'
 import {
   applyEvent,
@@ -496,6 +497,15 @@ export const removeSession = (id: string): Promise<boolean> => {
   return task
 }
 
+/** 批量删除（侧边栏多选）：逐个复用单条删除流程，任意一条失败返回 false。 */
+export const removeSessions = async (ids: string[]): Promise<boolean> => {
+  let ok = true
+  for (const id of ids) {
+    ok = (await removeSession(id)) && ok
+  }
+  return ok
+}
+
 const removeSessionData = async (id: string): Promise<boolean> => {
   if (get().importingHistory || deletingSessions.has(id)) {
     return false
@@ -518,6 +528,7 @@ const removeSessionData = async (id: string): Promise<boolean> => {
     unsavedSessions.delete(id)
     pendingFiles.delete(id)
     clearDraft(id)
+    removePins([id])
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== id),
       sessionCache: Object.fromEntries(

@@ -1,8 +1,15 @@
 import clsx from 'clsx'
 import { memo, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
-import { IconEditOutline16, IconEllipsisOutline16, IconTrashOutline16 } from '../base/icons.js'
+import {
+  IconCheckOutline16,
+  IconEditOutline16,
+  IconEllipsisOutline16,
+  IconTrashOutline16,
+} from '../base/icons.js'
+import { IconPinFill16, IconPinOutline16 } from '../base/actionIcons.js'
 import { renameSession, selectSession } from '../../services/chat/store.js'
+import { togglePin } from '../../services/chat/pins.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { IconButton } from '../base/IconButton.js'
 import { Menu } from '../base/Menu.js'
@@ -12,11 +19,20 @@ import styles from './SessionItem.module.css'
 export const SessionItem = memo(function SessionItem({
   session,
   active,
+  pinned,
+  selectMode,
+  selected,
+  onToggleSelect,
   onDelete,
 }: {
   session: SessionSummary
   active: boolean
-  onDelete: () => void
+  pinned: boolean
+  /** 多选态：点击条目切换选中，不进入会话，也不显示条目菜单 */
+  selectMode: boolean
+  selected: boolean
+  onToggleSelect: (id: string) => void
+  onDelete: (session: SessionSummary) => void
 }) {
   const t = useTranslate()
   const [editing, setEditing] = useState(false)
@@ -51,34 +67,59 @@ export const SessionItem = memo(function SessionItem({
     <div
       className={clsx(styles.item, active && styles.active)}
       onClick={() => {
+        if (selectMode) {
+          onToggleSelect(session.id)
+          return
+        }
         selectSession(session.id)
         closeMobileSider()
       }}
     >
+      {pinned ? (
+        <span className={styles.pinMark} aria-hidden>
+          <IconPinFill16 />
+        </span>
+      ) : null}
       <div className={styles.title}>{displayTitle}</div>
-      <div className={styles.action} onClick={(event) => event.stopPropagation()}>
-        <Menu
-          options={[
-            {
-              key: 'rename',
-              label: t('sessionItemMenuRenameOption'),
-              icon: <IconEditOutline16 />,
-              onSelect: () => setEditing(true),
-            },
-            {
-              key: 'delete',
-              label: t('delete'),
-              icon: <IconTrashOutline16 />,
-              danger: true,
-              onSelect: onDelete,
-            },
-          ]}
-        >
-          {({ toggle }) => (
-            <IconButton icon={<IconEllipsisOutline16 />} aria-label={t('more')} onClick={toggle} />
-          )}
-        </Menu>
-      </div>
+      {selectMode ? (
+        <span className={clsx(styles.check, selected && styles.checked)} aria-hidden>
+          {selected ? <IconCheckOutline16 /> : null}
+        </span>
+      ) : (
+        <div className={styles.action} onClick={(event) => event.stopPropagation()}>
+          <Menu
+            options={[
+              {
+                key: 'pin',
+                label: pinned ? t('unpinSession') : t('pinSession'),
+                icon: pinned ? <IconPinFill16 /> : <IconPinOutline16 />,
+                onSelect: () => togglePin(session.id),
+              },
+              {
+                key: 'rename',
+                label: t('sessionItemMenuRenameOption'),
+                icon: <IconEditOutline16 />,
+                onSelect: () => setEditing(true),
+              },
+              {
+                key: 'delete',
+                label: t('delete'),
+                icon: <IconTrashOutline16 />,
+                danger: true,
+                onSelect: () => onDelete(session),
+              },
+            ]}
+          >
+            {({ toggle }) => (
+              <IconButton
+                icon={<IconEllipsisOutline16 />}
+                aria-label={t('more')}
+                onClick={toggle}
+              />
+            )}
+          </Menu>
+        </div>
+      )}
     </div>
   )
 })
