@@ -12,7 +12,7 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionCode 7` / `versionName 0.4.0`（改 `android/app/build.gradle`）
+- 版本：`versionCode 8` / `versionName 0.5.0`（改 `android/app/build.gradle`）
 - 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**，密码默认 `pocketseek2026`，可用
   `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD` 覆盖）
 
@@ -78,6 +78,10 @@ sdk.dir=D:/DeepSeekApp/.android-sdk
   `ic_launcher_foreground.png` 同时作为自适应图标前景与 Android 13 单色主题图标的 alpha 蒙版。
 - 窗口底色：`android/app/src/main/java/com/pocketseek/app/ThemeBackgroundPlugin.java` 由 `src/native.ts` 调用，
   手动切换深浅主题时同步状态栏 / 手势栏背后的窗口底色（Android 15+ 的 `setStatusBarColor` 已不生效，改为设置 window background）。
+- 系统分享入口（0.5.0）：`AndroidManifest.xml` 为 `MainActivity` 声明 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`
+  （`text/plain`、`image/*`），`MainActivity.java` 在冷启动与 `onNewIntent` 时把内容登记到
+  `ShareReceiverPlugin.java`；JS 调用 `ShareReceiver.getPending()` 取走文本与图片 base64 后并入草稿。
+  Web 端对应 `public/manifest.webmanifest` 的 `share_target`（只支持文本/链接）。
 - 修改品牌标记后（需要 Python + Pillow）：
   ```sh
   python design/make_icons.py           # public/ PWA、favicon、Apple touch

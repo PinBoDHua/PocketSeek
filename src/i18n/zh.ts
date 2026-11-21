@@ -327,4 +327,9 @@ export const zh = {
   deleteSelectedConfirmDescription: '将永久删除选中的 {count} 个对话及其上传的文件，无法恢复。',
   collapseGroup: '收起分组',
   expandGroup: '展开分组',
+  // 系统分享接入
+  shareReceivedText: '已接收分享内容，可编辑后发送',
+  shareReceivedImages: '已接收分享内容并加入 {count} 张图片',
+  shareImagesSkipped: '{count} 张图片无法读取或格式不支持，已跳过',
+  shareImagesNeedKey: '分享的图片需要先设置 API Key，文字内容已保留',
 } as const
