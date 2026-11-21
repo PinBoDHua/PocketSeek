@@ -3,8 +3,8 @@
   align-items: center;
   flex-shrink: 0;
   box-sizing: border-box;
-  height: calc(60px + env(safe-area-inset-top, 0px));
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 10px 4px;
+  height: calc(60px + var(--safe-area-top, env(safe-area-inset-top, 0px)));
+  padding: calc(12px + var(--safe-area-top, env(safe-area-inset-top, 0px))) 10px 4px;
 }
 
 .title {
@@ -45,6 +45,18 @@
 
 .modelChipOpen {
   background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* 下拉指示：说明这是一个可点开的模型选择 */
+.chevron {
+  display: inline-flex;
+  margin-left: 1px;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+.modelChipOpen .chevron {
+  transform: rotate(180deg);
 }
 
 /* 菜单里未选中项的占位，保证文字左对齐一致 */

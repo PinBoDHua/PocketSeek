@@ -28,6 +28,41 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 空态快捷提问：中性描边胶囊，不加装饰色 */
+.prompts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.prompt {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background-color: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition-property: background-color, color;
+  transition-duration: var(--ds-transition-duration);
+
+  &:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+
+  &:active {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
 @media (max-width: 439px) {
   .greeting {
     font-size: 20px;
@@ -47,7 +82,7 @@
     justify-content: flex-end;
     max-width: none;
     margin: 0;
-    padding: 0 16px env(safe-area-inset-bottom);
+    padding: 0 16px var(--safe-area-bottom, env(safe-area-inset-bottom));
   }
 
   .greeting {

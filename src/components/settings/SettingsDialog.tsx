@@ -296,7 +296,7 @@ const AboutPanel = () => {
     state === 'available'
       ? t('settingsInstallHint')
       : state === 'installed'
-        ? t('settingsInstallHint')
+        ? t('settingsInstalled')
         : t('settingsInstallUnavailable')
   return (
     <>
@@ -310,16 +310,20 @@ const AboutPanel = () => {
         description={description}
         status={null}
         action={
-          <Button
-            variant="outlined"
-            size="m"
-            className={styles.cellButton}
-            disabled={state !== 'available'}
-            onClick={() => void install()}
-          >
-            <IconInstallOutline16 />
-            {t('settingsInstallApp')}
-          </Button>
+          state === 'installed' ? (
+            <span className={styles.installedTag}>{t('settingsInstalled')}</span>
+          ) : (
+            <Button
+              variant="outlined"
+              size="m"
+              className={styles.cellButton}
+              disabled={state !== 'available'}
+              onClick={() => void install()}
+            >
+              <IconInstallOutline16 />
+              {t('settingsInstallApp')}
+            </Button>
+          )
         }
       />
     </>

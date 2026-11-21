@@ -4,4 +4,6 @@
     <color name="colorPrimary">#3A63F2</color>
     <color name="colorPrimaryDark">#2C4CD0</color>
     <color name="colorAccent">#3A63F2</color>
+    <!-- 窗口底色：与 Web 应用浅色主题背景一致，避免安全区露出黑边 -->
+    <color name="window_bg">#FFFFFF</color>
 </resources>

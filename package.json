@@ -1,6 +1,6 @@
 {
   "name": "pocketseek",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PocketSeek：基于 DeepSeek 官方开源 chat-demo 改造的手机端第三方聊天客户端。",
   "license": "MIT",
   "private": true,
@@ -33,12 +33,12 @@
     "prismjs": "1.30.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "zustand": "4.4.7"
+    "zustand": "4.4.7",
+    "@capacitor/core": "^8.6.2"
   },
   "devDependencies": {
     "@capacitor/android": "^8.6.2",
     "@capacitor/cli": "^8.6.2",
-    "@capacitor/core": "^8.6.2",
     "@rspack/cli": "2.0.2",
     "@rspack/core": "2.0.2",
     "@rspack/dev-server": "2.0.1",

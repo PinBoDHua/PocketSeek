@@ -5,15 +5,29 @@
 > PocketSeek 与 DeepSeek（深度求索公司）没有任何隶属、合作、授权或官方认证关系，不是官方客户端。
 > 不使用 DeepSeek 商标与 LOGO。API Key 由使用者自行提供，只保存在你自己的浏览器里。
 
-| 首启填 Key | 欢迎页 | 模型切换 |
+| 浅色空态（含快捷提问） | 用量与费用脚注 | 深色空态 |
 | --- | --- | --- |
-| ![首启](docs/screenshots/01-first-run-api-key.png) | ![欢迎](docs/screenshots/02-welcome.png) | ![模型](docs/screenshots/03-model-switch.png) |
+| ![浅色欢迎](docs/screenshots/02-welcome-light.png) | ![用量](docs/screenshots/04-chat-usage.png) | ![深色欢迎](docs/screenshots/10-welcome-dark.png) |
 
-| 对话 + 思考折叠 + 用量费用 | 设置 | 关于 |
+| 首启填 Key | 模型切换 | 设置 |
 | --- | --- | --- |
-| ![对话](docs/screenshots/04-chat-thinking-and-cost.png) | ![设置](docs/screenshots/05-settings.png) | ![关于](docs/screenshots/06-about.png) |
+| ![首启](docs/screenshots/01-first-run-api-key.png) | ![模型](docs/screenshots/03-model-switch.png) | ![设置](docs/screenshots/05-settings.png) |
 
 > 截图来自 Android 14 雷电模拟器（720×1280）。对话截图使用本地 mock 数据联调，不是真实对话。
+
+---
+
+## 更新日志
+
+### 0.1.1 — UI/UX 打磨
+
+- **用量脚注更清晰**：改为「本回合 · 输入 / 缓存命中 / 输出」，费用用品牌色胶囊突出，不再是浅灰小字。
+- **触屏操作可达**：`@media (hover: none)` 下消息操作（复制 / 朗读 / 重新生成）常显，此前历史消息在手机上无法操作。
+- **空态快捷提问**：欢迎页三个一键开聊的提示胶囊，点一下直接发送。
+- **模型胶囊加下拉指示**：明确这是可点开的选择器，展开时箭头旋转。
+- **原生状态栏/系统栏跟随主题**：浅色主题白底深图标、深色主题深底浅图标；Android 安全区改用 Capacitor 注入的 `--safe-area-inset-*`（WebView 不认 `env()`）。
+- **关于页安装状态**：APK 内显示「已安装在当前设备」，不再显示不可点击的安装按钮。
+- 修复：XML 注释里的 `--` 导致资源编译失败；`@capacitor/core` 归位到运行时依赖。
 
 ---
 
@@ -26,10 +40,10 @@
 - **思考档位**：关闭 / 低 / 高（默认）/ 极高，对应官方 `reasoning.effort`
 - **联网搜索与读链接**：智能搜索开关、来源引用、搜索结果面板
 - **附件与拍照**：相册/文件/拖拽/粘贴，移动端相机直拍（`capture=environment`），图片压缩后经 Files API 上传
-- **用量与费用**：每条回复下方显示输入 / 缓存命中 / 输出 tokens 与按官方价目估算的人民币费用（可在设置中关闭）
+- **用量与费用**：每条回复下方显示「本回合」的输入 / 缓存命中 / 输出 tokens 与按官方价目估算的人民币费用（品牌色胶囊突出，可在设置中关闭）
 - **渲染**：Markdown、代码高亮、KaTeX 公式、Mermaid 图表
 - **本地优先**：会话/附件存 IndexedDB，API Key 与设置存 localStorage；支持 ZIP 历史导入导出（兼容 DeepSeek 官方导出格式）
-- **手机端**：单栏会话 + 抽屉会话列表、安全区适配、键盘弹起适配、深浅主题、中文单语
+- **手机端**：单栏会话 + 抽屉会话列表、安全区适配（含 Android 原生壳）、键盘弹起适配、深色主题跟随系统并同步系统栏图标、空态快捷提问、触屏常显操作按钮、中文单语
 - **PWA**：manifest / 图标 / Service Worker 离线壳 / 安装引导（需要 HTTPS 或 localhost 才生效）
 
 ## 快速开始（Windows）
@@ -53,14 +67,14 @@ pnpm serve        # 默认 http://0.0.0.0:4173
 
 **方式一（推荐）：装 APK**
 
-已构建并签名的安装包：[`release/PocketSeek-0.1.0.apk`](release/PocketSeek-0.1.0.apk)（约 5.0MB，Android 7.0+）
+已构建并签名的安装包：[`release/PocketSeek-0.1.1.apk`](release/PocketSeek-0.1.1.apk)（约 5.1MB，Android 7.0+，sha256 见 `release/PocketSeek-0.1.1.apk.sha256`）
 
 1. 把 APK 传到手机（微信文件传输 / 数据线 / 网盘均可）。
 2. 点击安装；系统提示「未知来源」时允许该来源。
 3. 打开 PocketSeek → 设置 → 数据管理 → 填入 DeepSeek API Key。
 4. 之后无需电脑、无需浏览器，像普通 App 一样使用。
 
-包名 `com.pocketseek.app`，版本 `0.1.0`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。
+包名 `com.pocketseek.app`，版本 `0.1.1`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。
 重新构建见 [docs/android-build.md](docs/android-build.md)：Capacitor 8 + JDK 21 + 自建 Android SDK，全部走国内镜像，无需 Android Studio。
 
 **方式二：手机浏览器**

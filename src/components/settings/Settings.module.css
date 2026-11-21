@@ -468,3 +468,14 @@
   line-height: 18px;
   color: var(--dsw-alias-label-dimmed);
 }
+
+/* 原生壳 / 已安装 PWA：安装入口显示为一行状态文字 */
+.installedTag {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--dsw-alias-button-ghost-active-fill);
+  color: var(--dsw-alias-brand-text);
+  font-size: 12px;
+  line-height: 18px;
+}

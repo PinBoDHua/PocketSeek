@@ -1,5 +1,10 @@
 import clsx from 'clsx'
-import { IconCheckOutline16, IconMenuOutline20, IconNewChatOutline20 } from '../base/icons.js'
+import {
+  IconCheckOutline16,
+  IconChevronDownOutline14,
+  IconMenuOutline20,
+  IconNewChatOutline20,
+} from '../base/icons.js'
 import { IconModelOutline16 } from '../base/brandIcons.js'
 import { Menu, type MenuOption } from '../base/Menu.js'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
@@ -48,6 +53,9 @@ export const MobileHeader = ({ title }: { title?: string }) => {
           >
             <IconModelOutline16 />
             <span>{t(model === 'deepseek-v4-pro' ? 'modelProShort' : 'modelFlashShort')}</span>
+            <span className={styles.chevron}>
+              <IconChevronDownOutline14 />
+            </span>
           </button>
         )}
       </Menu>

@@ -191,7 +191,11 @@ export const zh = {
   usageCacheHit: '缓存 {count}',
   usageOutput: '输出 {count}',
   usageEstimate: '≈¥{cost}',
+  usageLabel: '本回合',
   usageEstimatedTip: '按官方价目估算，实际以账单为准',
+  quickPromptReport: '写一段本周工作周报',
+  quickPromptExplain: '解释这段代码的作用',
+  quickPromptTranslate: '把这段话翻译成英文',
   settingsShowUsage: '回复下方显示用量与估算费用',
   settingsShowUsageOn: '显示',
   settingsShowUsageOff: '隐藏',
@@ -203,5 +207,6 @@ export const zh = {
   settingsInstallApp: '安装到桌面',
   settingsInstallHint: '安装后可像普通 App 一样从桌面图标打开',
   settingsInstallUnavailable: '当前环境不支持一键安装，可在浏览器菜单里选择「添加到主屏幕」',
+  settingsInstalled: '已安装在当前设备',
   settingsVersion: '版本 {version}',
 } as const

@@ -2,14 +2,39 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 10px;
-  padding-top: 8px;
-  color: var(--dsw-alias-label-dimmed);
-  font-size: 12px;
+  gap: 6px;
+  padding-top: 10px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12.5px;
   line-height: 18px;
+  font-variant-numeric: tabular-nums;
   user-select: none;
 }
 
-.cost {
+/* 「本回合」：比数字略重，让这一行被看见 */
+.label {
+  font-weight: 600;
   color: var(--dsw-alias-label-secondary);
+  letter-spacing: 0.02em;
+}
+
+.token {
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* 数字之间用细点分隔，避免看起来像一长串 */
+.token + .token::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--dsw-alias-label-dimmed);
+}
+
+/* 费用用品牌色小胶囊，是本行最醒目的一项 */
+.cost {
+  margin-left: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background-color: var(--dsw-alias-button-ghost-active-fill);
+  color: var(--dsw-alias-brand-text);
+  font-weight: 500;
 }
