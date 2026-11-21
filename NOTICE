@@ -1,0 +1,23 @@
+PocketSeek
+==========
+
+Copyright (c) 2026 PocketSeek contributors
+
+PocketSeek 是基于 DeepSeek 官方开源聊天客户端 chat-demo 改造的手机端第三方客户端。
+
+原始项目：https://github.com/deepseek-ai/chat-demo
+原始许可证：MIT（完整文本见 LICENSE，版权声明保留不变）
+
+本项目对原始项目的修改包括：品牌与图标、中文单语收敛、手机端交互与安全区适配、
+模型切换、思考档位、相机直拍、用量与费用脚注、PWA（manifest / Service Worker / 安装引导）、
+以及系统提示词与第三方身份声明等。
+
+合规说明
+--------
+
+PocketSeek 与 DeepSeek（杭州深度求索人工智能基础技术研究有限公司）没有隶属、合作、
+授权或官方认证关系，不得被表述为 DeepSeek 官方客户端。本项目不使用 DeepSeek 商标与 LOGO，
+界面中的蓝色仅作为产品自身配色。
+
+DeepSeek API Key 由使用者自行提供，仅保存在使用者本机浏览器（localStorage），
+不经过任何第三方服务器转发。

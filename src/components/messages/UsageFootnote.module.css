@@ -1,0 +1,15 @@
+.footnote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding-top: 8px;
+  color: var(--dsw-alias-label-dimmed);
+  font-size: 12px;
+  line-height: 18px;
+  user-select: none;
+}
+
+.cost {
+  color: var(--dsw-alias-label-secondary);
+}

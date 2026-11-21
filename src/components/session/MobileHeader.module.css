@@ -1,0 +1,55 @@
+.header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: calc(60px + env(safe-area-inset-top, 0px));
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 10px 4px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: var(--dsw-font-s-strong-14);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 模型切换：顶栏右侧的紧凑胶囊，点开选择 Flash / Pro */
+.modelChip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 17px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background-color: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.modelChipOpen {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* 菜单里未选中项的占位，保证文字左对齐一致 */
+.menuSpacer {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+}

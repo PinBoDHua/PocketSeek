@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; padding: 0; background: transparent; }
+      svg { display: block; width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <img id="i" src="./icon-any.svg" style="display:block;width:100vw;height:100vh" />
+    <script>
+      const q = new URLSearchParams(location.search)
+      if (q.get('maskable')) document.getElementById('i').src = './icon-maskable.svg'
+    </script>
+  </body>
+</html>
