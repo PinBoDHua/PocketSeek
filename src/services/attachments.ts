@@ -213,6 +213,11 @@ export const cancelUpload = (id: string) => {
   setTask(id, null)
 }
 
+/** 取消待发送消息时把已上传成功的附件放回草稿，沿用原 serverId，不重复上传。 */
+export const seedUploadTask = (id: string, serverId: string) => {
+  setTask(id, { status: 'done', serverId })
+}
+
 /** 检查旧图片的 file_id。超限返回 null 以触发补传，无法读取原件时保留原 ID。 */
 export const checkImageFileIds = async (files: FileAttachment[], signal: AbortSignal) => {
   const checked = new Map<string, string | null>()

@@ -100,6 +100,38 @@ export const appendBranch = (
   }
 }
 
+/**
+ * 移除当前分支末尾的一轮提问与回答，返回新会话；不是末尾成对消息时返回 null。
+ * 仅用于取消尚未发出的离线消息，保证没有其他消息依赖被删除的节点。
+ */
+export const removeLastTurn = (
+  original: Session,
+  questionId: string,
+  replyId: string
+): Session | null => {
+  const session = normalizeSession(original)
+  const path = getVisibleMessages(session)
+  if (path.at(-2)?.id !== questionId || path.at(-1)?.id !== replyId) {
+    return null
+  }
+  if (session.messages.some((message) => message.id !== replyId && message.parentId === questionId)) {
+    return null
+  }
+  if (session.messages.some((message) => message.parentId === replyId)) {
+    return null
+  }
+  const parentId = path.at(-3)?.id ?? null
+  return {
+    ...session,
+    rootMessageId: parentId === null ? null : session.rootMessageId,
+    messages: session.messages
+      .filter((message) => message.id !== questionId && message.id !== replyId)
+      .map((message) =>
+        message.id === parentId ? { ...message, selectedChildId: undefined } : message
+      ),
+  }
+}
+
 /** 仅允许切换当前路径上某一节点的兄弟版本，恢复该版本已选中的后续分支。 */
 export const selectVersion = (original: Session, messageId: string): Session => {
   const session = normalizeSession(original)

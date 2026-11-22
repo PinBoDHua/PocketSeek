@@ -45,6 +45,9 @@ const describeFailure = (message: AssistantMessage): string | null => {
   if (message.status === 'stopped') {
     return '（回答已停止）'
   }
+  if (message.status === 'queued') {
+    return '（消息尚未发送，导出内容不含该轮）'
+  }
   if (message.status === 'pending' || message.status === 'streaming') {
     return '（回答生成中，导出内容不完整）'
   }

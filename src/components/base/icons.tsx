@@ -571,3 +571,21 @@ export const IconToastError16 = () => (
     />
   </svg>
 )
+
+/** 离线 / 待发送：云朵加斜线，16px 线性图标 */
+export const IconCloudOffOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M4.35 12.5h7.05a2.7 2.7 0 0 0 .55-5.344A4.15 4.15 0 0 0 5.2 6.22a3.15 3.15 0 0 0-.85 6.28Z"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    />
+    <path
+      d="m2.2 2.2 11.6 11.6"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    />
+  </svg>
+)

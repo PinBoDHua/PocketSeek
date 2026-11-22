@@ -6,6 +6,7 @@ import {
   getVisibleMessages,
   type MessageVersions,
 } from '../../services/chat/branches.js'
+import { useOutbox } from '../../services/chat/outbox.js'
 import { selectMessageVersion } from '../../services/chat/store.js'
 import type { Session } from '../../services/chat/types.js'
 import { IconArrowDownOutline16 } from '../base/actionIcons.js'
@@ -49,6 +50,11 @@ export const MessageList = ({
 }) => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  // 有离线待发送消息时按繁忙处理：暂不允许编辑、重答或切换版本，避免队列与分支错位。
+  const queued = useOutbox((state) =>
+    state.entries.some((entry) => entry.sessionId === session.id)
+  )
+  const busy = streaming || queued
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
@@ -225,7 +231,7 @@ export const MessageList = ({
                     retryUploadId={uploadRetryId}
                     isFirst={index === 0}
                     isLast={index === lastIndex || index === lastIndex - 1}
-                    busy={streaming}
+                    busy={busy}
                     flash={jumpFlash === message.id}
                     versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                     onSelectVersion={selectVersion}
@@ -237,7 +243,7 @@ export const MessageList = ({
                     message={message}
                     isLast={index === lastIndex}
                     streaming={streaming && index === lastIndex}
-                    busy={streaming}
+                    busy={busy}
                     flash={jumpFlash === message.id}
                     versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                     onSelectVersion={selectVersion}

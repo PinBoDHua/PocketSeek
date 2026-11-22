@@ -5,10 +5,12 @@ import {
   cancelUpload,
   isImage,
   resolveMimeType,
+  seedUploadTask,
   uploadAttachment,
   validateFiles,
   type UploadTask,
 } from '../attachments.js'
+import { loadFile } from './db.js'
 import type { FileAttachment } from './types.js'
 
 export type DraftAttachment = {
@@ -204,6 +206,50 @@ export const clearSentDraft = (sessionId: string | null) => {
 export const clearDraft = (sessionId: string | null) => {
   getDraft(sessionId).attachments.forEach((attachment) => cancelUpload(attachment.id))
   updateDraft(sessionId, () => EMPTY_DRAFT)
+}
+
+/**
+ * 把已进入发件箱的消息附件放回草稿：从 IndexedDB 读回原件，沿用原 serverId，
+ * 取消后可直接再次发送，不需要重新上传。返回恢复的数量。
+ */
+export const restoreDraftAttachments = async (
+  sessionId: string | null,
+  files: FileAttachment[]
+): Promise<number> => {
+  if (files.length === 0) {
+    return 0
+  }
+  const existing = new Set(getDraft(sessionId).attachments.map((attachment) => attachment.id))
+  const restored: DraftAttachment[] = []
+  for (const file of files) {
+    if (existing.has(file.id)) {
+      continue
+    }
+    const blob = await loadFile(file.id).catch(() => null)
+    if (!blob) {
+      continue
+    }
+    restored.push({
+      id: file.id,
+      file: new File([blob], file.name, { type: file.mimeType || blob.type }),
+      isImage: file.isImage,
+    })
+  }
+  if (restored.length === 0) {
+    return 0
+  }
+  updateDraft(sessionId, (draft) => ({
+    ...draft,
+    attachments: [...draft.attachments, ...restored],
+  }))
+  const serverIds = new Map(files.map((file) => [file.id, file.serverId]))
+  for (const attachment of restored) {
+    const serverId = serverIds.get(attachment.id)
+    if (serverId) {
+      seedUploadTask(attachment.id, serverId)
+    }
+  }
+  return restored.length
 }
 
 export const clearAllDrafts = () => {

@@ -4,6 +4,7 @@ import { useSettings } from '../services/settings.js'
 import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
 import {
   bindChatPersistence,
+  bindOutbox,
   initChat,
   retrySaveSessions,
   selectSession,
@@ -72,6 +73,8 @@ export const App = () => {
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(initShareInbox, [])
   useEffect(bindChatPersistence, [])
+  // 启动后补发遗留的离线消息，并在恢复联网时自动继续
+  useEffect(bindOutbox, [])
 
   // 搜索结果面板只属于当前会话
   useEffect(closeSearchPanel, [activeId])

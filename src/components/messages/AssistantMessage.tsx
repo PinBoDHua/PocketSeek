@@ -1,15 +1,26 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo } from 'react'
-import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
+import {
+  IconCloudOffOutline16,
+  IconRefreshOutline16,
+  IconWarningOutline16,
+} from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
-import { continueReply, regenerateReply } from '../../services/chat/store.js'
+import {
+  cancelQueuedMessage,
+  continueReply,
+  regenerateReply,
+  retryQueuedMessage,
+} from '../../services/chat/store.js'
+import { useOnlineStatus } from '../../services/network.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { IconButton } from '../base/IconButton.js'
 import { Button } from '../base/Button.js'
+import { showToast } from '../base/toastState.js'
 import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
@@ -50,9 +61,11 @@ export const AssistantMessage = memo(function AssistantMessage({
   onSelectVersion: SelectMessageVersion
 }) {
   const t = useTranslate()
+  const online = useOnlineStatus()
   const view = useReplyView(message, streaming)
   const panelEntry = useSearchPanel((state) => state.entry)
-  const notice = streaming ? null : describeReply(message)
+  const queued = message.status === 'queued'
+  const notice = streaming || queued ? null : describeReply(message)
   // 安全拒绝：已下发的思考与正文按协议丢弃，只显示模板答复。
   const refused = message.stopReason === 'refusal'
   const answer = refused ? null : view.answer
@@ -68,6 +81,18 @@ export const AssistantMessage = memo(function AssistantMessage({
   const regenerate = () => {
     stopReadAloud()
     regenerateReply(sessionId, message.id)
+  }
+  const retryQueued = () => {
+    if (!retryQueuedMessage()) {
+      showToast({ key: 'outboxStillOfflineToast' })
+    }
+  }
+  const cancelQueued = () => {
+    void cancelQueuedMessage(sessionId, message.id).then((canceled) => {
+      if (canceled) {
+        showToast({ key: 'outboxCanceledToast' })
+      }
+    })
   }
   const menu = useMessageMenu({
     sessionId,
@@ -118,6 +143,33 @@ export const AssistantMessage = memo(function AssistantMessage({
           ))}
         </div>
       ) : null}
+      {queued ? (
+        <div className={styles.queued} role="status">
+          <span className={styles.queuedIcon}>
+            <IconCloudOffOutline16 />
+          </span>
+          <span className={styles.queuedText}>
+            {t(online ? 'outboxQueuedOnline' : 'outboxQueuedOffline')}
+          </span>
+          <span className={styles.queuedActions}>
+            <button
+              type="button"
+              className={styles.queuedAction}
+              disabled={!online}
+              onClick={retryQueued}
+            >
+              {t('outboxSendNow')}
+            </button>
+            <button
+              type="button"
+              className={clsx(styles.queuedAction, styles.queuedCancel)}
+              onClick={cancelQueued}
+            >
+              {t('outboxCancel')}
+            </button>
+          </span>
+        </div>
+      ) : null}
       {notice && notice.presentation !== 'response' ? (
         <div className={styles.notice}>
           <IconWarningOutline16 />
@@ -165,8 +217,8 @@ export const AssistantMessage = memo(function AssistantMessage({
           </span>
         </div>
       ) : null}
-      {streaming ? null : <UsageFootnote message={message} />}
-      {streaming ? null : (
+      {streaming || queued ? null : <UsageFootnote message={message} />}
+      {streaming || queued ? null : (
         <div className={styles.bottom}>
           <MessageTime createdAt={message.createdAt} />
           <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />

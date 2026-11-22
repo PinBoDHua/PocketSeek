@@ -69,10 +69,11 @@ export type TextPart = {
 export type ReplyBlock = ThinkingPart | TextPart | ServerToolBlock
 
 /**
+ * queued：离线或网络失败，消息暂存在本机发件箱，等待联网后补发；
  * pending：已发出请求，还没收到事件；streaming：正在接收；
  * done：收到 message_stop；stopped：用户停止或页面关闭；error：请求或流出错
  */
-export type ReplyStatus = 'pending' | 'streaming' | 'done' | 'stopped' | 'error'
+export type ReplyStatus = 'queued' | 'pending' | 'streaming' | 'done' | 'stopped' | 'error'
 
 export type AssistantMessage = MessageBranch & {
   id: string

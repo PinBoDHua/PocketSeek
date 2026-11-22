@@ -17,6 +17,8 @@ import type { ThinkEffort } from '../../services/api/types.js'
 import type { TranslationKey } from '../../i18n/index.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
+import { useOnlineStatus } from '../../services/network.js'
+import { useOutbox } from '../../services/chat/outbox.js'
 import {
   addDraftFiles,
   consumeRestoredDraft,
@@ -85,6 +87,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const draftReady = useUploads((state) => prepareDraftMessage(draft, state.tasks) !== null)
   const streaming = useChatStore(
     (state) => sessionId !== null && Object.hasOwn(state.streaming, sessionId)
+  )
+  const online = useOnlineStatus()
+  // 上一条消息还在离线发件箱里：先等它发出或取消，避免多轮消息排队后上下文错位。
+  const queued = useOutbox(
+    (state) => sessionId !== null && state.entries.some((entry) => entry.sessionId === sessionId)
   )
   const effort = useSettings((state) => state.effort)
   const importingHistory = useChatStore((state) => state.importingHistory)
@@ -238,7 +245,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const recording = voice.status === 'recording'
 
   // 排队、上传中或上传失败的附件都留在输入框，全部上传成功后才能发送
-  const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
+  const canSend =
+    !importingHistory && !streaming && !queued && voice.status === 'idle' && draftReady
 
   const send = () => {
     if (
@@ -249,8 +257,15 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       return
     }
     // 文本与上传完成态由提交动作读取最新快照，不使用上一次渲染的草稿。
-    if (!ensureApiKey() || !sendMessage(sessionId)) {
+    if (!ensureApiKey()) {
       return
+    }
+    const result = sendMessage(sessionId)
+    if (!result) {
+      return
+    }
+    if (result === 'queued') {
+      showToast({ key: 'outboxQueuedToast' })
     }
     // 发送成功：草稿已由 store 清空并同步 localStorage，按钮短暂显示对勾。
     // 只有从新建会话（首页）发送会重建输入框，需要记下时间让新实例接着显示。
@@ -276,6 +291,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       }}
     >
       <DraftAttachments items={attachments} onRetry={retryFile} onRemove={removeFile} />
+      {online ? null : (
+        <div className={styles.offlineHint} role="status">
+          {t('offlineSendHint')}
+        </div>
+      )}
       <div className={styles.textareaWrapper}>
         <textarea
           ref={textareaRef}

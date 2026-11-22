@@ -40,6 +40,14 @@
   cursor: default;
 }
 
+/* 离线提示贴在输入框顶部，说明发送后会先暂存 */
+.offlineHint {
+  padding: 8px 14px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .attachment {
   position: relative;
   flex-shrink: 0;

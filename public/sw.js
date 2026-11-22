@@ -1,5 +1,5 @@
 /* PocketSeek 离线壳：导航请求网络优先、静态资源缓存优先；API 请求不经过缓存。 */
-const VERSION = 'pocketseek-v6'
+const VERSION = 'pocketseek-v7'
 const SHELL = [
   './',
   './index.html',

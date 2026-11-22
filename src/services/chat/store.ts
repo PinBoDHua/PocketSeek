@@ -2,7 +2,13 @@ import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
 import { ApiError, streamMessage } from '../api/client.js'
 import type { CreateMessageRequest, ThinkEffort } from '../api/types.js'
-import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
+import {
+  classifyApiError,
+  extractFileIds,
+  getFileErrorCode,
+  isRetryableApiError,
+} from '../api/errors.js'
+import { isOffline } from '../network.js'
 import {
   cancelUpload,
   checkImageFileIds,
@@ -11,7 +17,13 @@ import {
   useUploads,
 } from '../attachments.js'
 import { useSettings } from '../settings.js'
-import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
+import {
+  appendBranch,
+  getVisibleMessages,
+  normalizeSession,
+  removeLastTurn,
+  selectVersion,
+} from './branches.js'
 import * as db from './db.js'
 import {
   clearAllDrafts,
@@ -19,7 +31,18 @@ import {
   clearSentDraft,
   getDraft,
   prepareDraftMessage,
+  restoreDraftAttachments,
+  setDraftText,
 } from './drafts.js'
+import {
+  addOutboxEntry,
+  clearOutbox,
+  clearOutboxForSession,
+  getOutboxEntry,
+  hasSessionOutbox,
+  removeOutboxEntry,
+  sortedOutboxEntries,
+} from './outbox.js'
 import { removePins } from './pins.js'
 import { createLatestReminder } from './latestReminder.js'
 import {
@@ -34,6 +57,7 @@ import {
   type AssistantMessage,
   type FileAttachment,
   type Message,
+  type ReplyStatus,
   type Session,
   type SessionSummary,
   type UserMessage,
@@ -263,7 +287,7 @@ export const bindChatPersistence = () => {
 }
 
 /** 按当前模型与思考档位创建回复：effort 为 none 时关闭深度思考，智能搜索控制 deepseek_web_search。 */
-const createReply = (): AssistantMessage => {
+const createReply = (status: ReplyStatus = 'pending'): AssistantMessage => {
   const { model, effort, search } = useSettings.getState()
   return {
     id: createId(),
@@ -274,27 +298,49 @@ const createReply = (): AssistantMessage => {
     thinkEffort: effort,
     search,
     prefix: true,
-    status: 'pending',
+    status,
     blocks: [],
   }
 }
 
-/** 仍在生成中的回复（页面关闭或导出时未结束）按「已停止」处理 */
+const OUTBOX_CANCELED_ERROR: AssistantMessage['error'] = {
+  kind: 'protocol',
+  message: '',
+  localMessage: { key: 'outboxCanceled' },
+}
+
+const OUTBOX_LOST_ERROR: AssistantMessage['error'] = {
+  kind: 'protocol',
+  message: '',
+  localMessage: { key: 'outboxLost' },
+}
+
+/** 仍在生成中的回复（页面关闭或导出时未结束）按「已停止」处理；没有发件箱记录的待发送回复标记为失效。 */
 const settleInterrupted = (session: Session): Session => {
-  if (
-    !session.messages.some(
-      (m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
-    )
-  ) {
+  const needsSettle = session.messages.some(
+    (message) =>
+      message.role === 'assistant' &&
+      (message.status === 'pending' ||
+        message.status === 'streaming' ||
+        (message.status === 'queued' && !getOutboxEntry(message.id)))
+  )
+  if (!needsSettle) {
     return session
   }
   return {
     ...session,
-    messages: session.messages.map((m) =>
-      m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
-        ? settleReply(m, 'stopped', session.updatedAt)
-        : m
-    ),
+    messages: session.messages.map((message) => {
+      if (message.role !== 'assistant') {
+        return message
+      }
+      if (message.status === 'pending' || message.status === 'streaming') {
+        return settleReply(message, 'stopped', session.updatedAt)
+      }
+      if (message.status === 'queued' && !getOutboxEntry(message.id)) {
+        return { ...message, status: 'error', error: OUTBOX_LOST_ERROR }
+      }
+      return message
+    }),
   }
 }
 
@@ -427,6 +473,7 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     unsavedSessions.clear()
     pendingFiles.clear()
     clearAllDrafts()
+    clearOutbox()
     set({
       ready: true,
       initError: false,
@@ -528,6 +575,7 @@ const removeSessionData = async (id: string): Promise<boolean> => {
     unsavedSessions.delete(id)
     pendingFiles.delete(id)
     clearDraft(id)
+    clearOutboxForSession(id)
     removePins([id])
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== id),
@@ -564,9 +612,13 @@ export const stopReply = (sessionId: string) => getStreamController(sessionId)?.
 /**
  * 提交指定会话的最新草稿；null 表示新建会话。
  * 同步接收成功才清空草稿，附件原件由会话接管；保存失败仍通过保存入口重试。
+ * 离线时消息进入本机发件箱，等待联网后补发。
  */
-export const sendMessage = (targetSessionId: string | null) => {
+export const sendMessage = (targetSessionId: string | null): 'sent' | 'queued' | false => {
   if (get().importingHistory || !get().ready) {
+    return false
+  }
+  if (targetSessionId !== null && hasSessionOutbox(targetSessionId)) {
     return false
   }
   const prepared = prepareDraftMessage(getDraft(targetSessionId), useUploads.getState().tasks)
@@ -620,7 +672,8 @@ export const sendMessage = (targetSessionId: string | null) => {
     })),
     createdAt: now,
   }
-  const reply = createReply()
+  const queued = isOffline()
+  const reply = createReply(queued ? 'queued' : 'pending')
   updateSession(sessionId, (session) => ({
     ...appendBranch(session, history.at(-1)?.id ?? null, [question, reply]),
     updatedAt: now,
@@ -633,13 +686,22 @@ export const sendMessage = (targetSessionId: string | null) => {
   }
   persist(sessionId)
   clearSentDraft(targetSessionId)
-  void streamReply(sessionId, reply, { history, question })
-  return true
+  if (queued) {
+    addOutboxEntry({
+      sessionId,
+      questionId: question.id,
+      replyId: reply.id,
+      createdAt: now,
+    })
+    return 'queued'
+  }
+  void streamReply(sessionId, reply, { history, question }, { queue: true })
+  return 'sent'
 }
 
 /** 重新生成当前路径上的回答：在原问题下新增版本，不覆盖旧回答和后续对话。 */
 export const regenerateReply = (sessionId: string, messageId?: string) => {
-  if (get().importingHistory || deletingSessions.has(sessionId)) {
+  if (get().importingHistory || deletingSessions.has(sessionId) || hasSessionOutbox(sessionId)) {
     return
   }
   const session = getSession(sessionId)
@@ -665,7 +727,7 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
 
 /** 编辑提问后新增同父版本，保留原文件；旧问题的所有回答与后续对话仍可切回。 */
 export const editMessage = (sessionId: string, messageId: string, content: string): boolean => {
-  if (get().importingHistory || deletingSessions.has(sessionId)) {
+  if (get().importingHistory || deletingSessions.has(sessionId) || hasSessionOutbox(sessionId)) {
     return false
   }
   const session = getSession(sessionId)
@@ -697,7 +759,7 @@ export const editMessage = (sessionId: string, messageId: string, content: strin
 }
 
 export const selectMessageVersion = (sessionId: string, messageId: string) => {
-  if (get().importingHistory || deletingSessions.has(sessionId)) {
+  if (get().importingHistory || deletingSessions.has(sessionId) || hasSessionOutbox(sessionId)) {
     return
   }
   if (getStreamController(sessionId)) {
@@ -709,7 +771,7 @@ export const selectMessageVersion = (sessionId: string, messageId: string) => {
 
 /** 继续最后一条未完成的回答：保留原消息与开关，仅将新流的内容追加到原块之后。 */
 export const continueReply = (sessionId: string, messageId: string) => {
-  if (get().importingHistory || deletingSessions.has(sessionId)) {
+  if (get().importingHistory || deletingSessions.has(sessionId) || hasSessionOutbox(sessionId)) {
     return
   }
   const session = getSession(sessionId)
@@ -997,14 +1059,23 @@ const waitForRetry = (attempt: number, signal: AbortSignal) =>
  * 请求并消费流：先补齐附件的 serverId，再发请求；流式增量按动画帧刷新内存，完成、失败或停止后落盘。
  * 补传失败时回复记为 upload 错误，可重试。
  * 服务端判定 file_id 失效时重新补传后重发，退避重试且次数有上限，超过则按原始报错收尾。
+ * queue：还没收到任何内容就断网时转入发件箱；outbox：本轮是补发，结束（非重新入队）后清掉队列记录。
  */
-const streamReply = async (sessionId: string, initial: AssistantMessage, request: Request) => {
+type StreamOptions = { queue?: boolean; outbox?: boolean }
+
+const streamReply = async (
+  sessionId: string,
+  initial: AssistantMessage,
+  request: Request,
+  options?: StreamOptions
+) => {
   const controller = new AbortController()
   if (!getSession(sessionId)?.title) {
     titleRequests.add(controller)
   }
   set((state) => ({ streaming: { ...state.streaming, [sessionId]: controller } }))
   let reply = initial
+  let requeued = false
   let frame = 0
   const flush = () => {
     cancelAnimationFrame(frame)
@@ -1018,6 +1089,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       /** 附件补齐前出错属于上传失败，请求还没有发出 */
       let preparing = true
       let receivedContent = false
+      let receivedEvent = false
       try {
         const prepared = await prepareFiles(sessionId, request, controller.signal)
         preparing = false
@@ -1053,6 +1125,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         )
         const blockIndexes = new Map<number, number>()
         for await (const event of events) {
+          receivedEvent = true
           receivedContent ||= event.type === 'content_block_start'
           if (
             event.type === 'message_delta' &&
@@ -1078,6 +1151,19 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       } catch (error) {
         if (controller.signal.aborted) {
           reply = settleReply(reply, 'stopped', Date.now())
+          break
+        }
+        // 请求还没有产生任何内容就断网：转入本机发件箱，联网后自动补发。
+        // 已收到任意事件说明服务端可能已经开始处理，不自动重发，避免重复计费。
+        if (!receivedEvent && options?.queue && classifyApiError(error) === 'network') {
+          reply = { ...reply, status: 'queued', error: undefined }
+          addOutboxEntry({
+            sessionId,
+            questionId: request.question.id,
+            replyId: reply.id,
+            createdAt: Date.now(),
+          })
+          requeued = true
           break
         }
         if (preparing) {
@@ -1131,6 +1217,151 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         Object.entries(state.streaming).filter(([id]) => id !== sessionId)
       ),
     }))
+    if (options?.outbox && !requeued) {
+      removeOutboxEntry(initial.id)
+    }
     persist(sessionId)
   }
+}
+
+let outboxFlushing = false
+
+/** 联网后按时间顺序补发离线消息；遇到新的网络失败就停下，等下一次 online 或手动重试。 */
+export const flushOutbox = async () => {
+  if (outboxFlushing || isOffline() || get().importingHistory || !get().ready) {
+    return
+  }
+  outboxFlushing = true
+  try {
+    for (const entry of sortedOutboxEntries()) {
+      if (isOffline() || get().importingHistory) {
+        break
+      }
+      if (!get().sessions.some((session) => session.id === entry.sessionId)) {
+        removeOutboxEntry(entry.replyId)
+        continue
+      }
+      await ensureSessionLoaded(entry.sessionId)
+      const session = getSession(entry.sessionId)
+      if (!session) {
+        // 读取失败时保留队列，等下一次联网事件或手动重试；会话确实不存在才清理。
+        if (!get().sessionLoadErrors[entry.sessionId]) {
+          removeOutboxEntry(entry.replyId)
+        }
+        continue
+      }
+      const reply = session.messages.find((message) => message.id === entry.replyId)
+      if (reply?.role !== 'assistant' || reply.status !== 'queued') {
+        removeOutboxEntry(entry.replyId)
+        continue
+      }
+      if (getStreamController(entry.sessionId)) {
+        continue
+      }
+      const path = getVisibleMessages(session)
+      const index = path.findIndex((message) => message.id === entry.replyId)
+      const question = path[index - 1]
+      if (question?.role !== 'user' || question.id !== entry.questionId) {
+        removeOutboxEntry(entry.replyId)
+        continue
+      }
+      const pending: AssistantMessage = { ...reply, status: 'pending', error: undefined }
+      updateReply(entry.sessionId, pending)
+      persist(entry.sessionId)
+      await streamReply(
+        entry.sessionId,
+        pending,
+        { history: path.slice(0, index - 1), question },
+        { queue: true, outbox: true }
+      )
+      if (getOutboxEntry(entry.replyId)) {
+        break
+      }
+    }
+  } finally {
+    outboxFlushing = false
+  }
+}
+
+let outboxBound = false
+
+/** 启动时补发遗留队列，并在恢复联网时自动继续；初始离线则保持等待。 */
+export const bindOutbox = () => {
+  if (outboxBound) {
+    return () => {}
+  }
+  outboxBound = true
+  const onOnline = () => {
+    void flushOutbox()
+  }
+  window.addEventListener('online', onOnline)
+  void initChat().then(() => flushOutbox())
+  return () => {
+    outboxBound = false
+    window.removeEventListener('online', onOnline)
+  }
+}
+
+/** 「立即发送」：在线时触发补发并返回 true；仍离线时返回 false，由界面提示。 */
+export const retryQueuedMessage = () => {
+  if (isOffline()) {
+    return false
+  }
+  void flushOutbox()
+  return true
+}
+
+const markReplyCanceled = (sessionId: string, replyId: string) => {
+  updateSession(sessionId, (session) => ({
+    ...session,
+    messages: session.messages.map((message) =>
+      message.id === replyId && message.role === 'assistant'
+        ? { ...message, status: 'error', error: OUTBOX_CANCELED_ERROR }
+        : message
+    ),
+  }))
+  persist(sessionId)
+}
+
+/**
+ * 取消待发送消息：从会话里移除这一轮并尽量放回输入框。
+ * 会话是这条消息新建的，则一并删除，回到首页；附件原件从 IndexedDB 恢复并沿用原 serverId。
+ */
+export const cancelQueuedMessage = async (sessionId: string, replyId: string): Promise<boolean> => {
+  const entry = getOutboxEntry(replyId)
+  if (!entry || get().importingHistory) {
+    return false
+  }
+  const session = getSession(sessionId)
+  if (!session) {
+    removeOutboxEntry(replyId)
+    return true
+  }
+  const reply = session.messages.find((message) => message.id === replyId)
+  if (reply?.role !== 'assistant' || reply.status !== 'queued') {
+    return false
+  }
+  const question = session.messages.find((message) => message.id === entry.questionId)
+  const text = question?.role === 'user' ? question.content : ''
+  const files = question?.role === 'user' ? question.files : []
+  removeOutboxEntry(replyId)
+  const next = removeLastTurn(session, entry.questionId, replyId)
+  if (!next) {
+    markReplyCanceled(sessionId, replyId)
+    return true
+  }
+  if (next.messages.length === 0) {
+    // 先把附件读回草稿，再删会话；删除时会一并清掉仅被该会话引用的原件。
+    await restoreDraftAttachments(null, files)
+    setDraftText(null, text)
+    if (!(await removeSession(sessionId))) {
+      markReplyCanceled(sessionId, replyId)
+    }
+    return true
+  }
+  updateSession(sessionId, () => next)
+  persist(sessionId)
+  setDraftText(sessionId, text)
+  await restoreDraftAttachments(sessionId, files)
+  return true
 }

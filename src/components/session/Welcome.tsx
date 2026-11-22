@@ -8,6 +8,7 @@ import { setDraftText } from '../../services/chat/drafts.js'
 import { sendMessage } from '../../services/chat/store.js'
 import { usePrompts } from '../../services/prompts.js'
 import { ensureApiKey, openSettings } from '../settings/settingsDialogState.js'
+import { showToast } from '../base/toastState.js'
 import styles from './Welcome.module.css'
 
 /** 首页展示的快捷提问数量；更多的提示词从输入框的「提示词」入口调用 */
@@ -23,7 +24,9 @@ export const Welcome = () => {
       return
     }
     setDraftText(null, text)
-    sendMessage(null)
+    if (sendMessage(null) === 'queued') {
+      showToast({ key: 'outboxQueuedToast' })
+    }
   }
   return (
     <div className={styles.container}>
