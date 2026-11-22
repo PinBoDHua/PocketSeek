@@ -1,11 +1,7 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo } from 'react'
-import {
-  IconCloudOffOutline16,
-  IconRefreshOutline16,
-  IconWarningOutline16,
-} from '../base/icons.js'
+import { IconCloudOffOutline16, IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import {
@@ -26,6 +22,7 @@ import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
 import { ReadAloudButton } from './ReadAloudButton.js'
 import { CopyButton } from './CopyButton.js'
+import { QuoteButton } from './QuoteButton.js'
 import { MessageTime } from './MessageTime.js'
 import { ReplyArea } from './ReplyArea.js'
 import { UsageFootnote } from './UsageFootnote.js'
@@ -224,6 +221,9 @@ export const AssistantMessage = memo(function AssistantMessage({
           <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />
           <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
             {copyText ? <CopyButton text={copyText} /> : null}
+            {answerText || templateText ? (
+              <QuoteButton sessionId={sessionId} text={answerText || templateText} />
+            ) : null}
             {responseText && !refused ? (
               <ReadAloudButton messageId={message.id} text={responseText} />
             ) : null}

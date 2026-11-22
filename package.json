@@ -1,6 +1,6 @@
 {
   "name": "pocketseek",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "PocketSeek：基于 DeepSeek 官方开源 chat-demo 改造的手机端第三方聊天客户端。",
   "license": "MIT",
   "private": true,

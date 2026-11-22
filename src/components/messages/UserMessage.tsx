@@ -18,6 +18,7 @@ import {
 import { MessageFile } from './MessageFile.js'
 import { MessageTime } from './MessageTime.js'
 import { CopyButton } from './CopyButton.js'
+import { QuoteButton } from './QuoteButton.js'
 import { useMessageMenu } from './useMessageMenu.js'
 import styles from './UserMessage.module.css'
 
@@ -80,11 +81,7 @@ export const UserMessage = memo(function UserMessage({
 
   return (
     <div
-      className={clsx(
-        styles.container,
-        isFirst && styles.isFirst,
-        flash && 'message-jump-flash'
-      )}
+      className={clsx(styles.container, isFirst && styles.isFirst, flash && 'message-jump-flash')}
       data-message-id={message.id}
     >
       {message.files.length > 0 ? (
@@ -147,6 +144,9 @@ export const UserMessage = memo(function UserMessage({
             <MessageTime createdAt={message.createdAt} />
             <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
               {message.content ? <CopyButton text={message.content} /> : null}
+              {message.content ? (
+                <QuoteButton sessionId={sessionId} text={message.content} />
+              ) : null}
               <IconButton
                 icon={<IconEditOutline16 />}
                 tooltip={t('editMessage')}

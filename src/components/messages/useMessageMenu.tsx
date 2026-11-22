@@ -1,22 +1,28 @@
-import { useCallback, useState, type MouseEvent, type TouchEvent } from 'react'
+import { useCallback, useState, type MouseEvent } from 'react'
 import { useTranslate } from '../../i18n/index.js'
-import { getDraft, setDraftText } from '../../services/chat/drafts.js'
 import { copyText } from '../../utils/clipboard.js'
 import { IconQuoteOutline16 } from '../base/actionIcons.js'
-import {
-  ContextMenu,
-  useLongPress,
-  type ContextMenuItem,
-  type MenuPosition,
-} from '../base/ContextMenu.js'
+import { ContextMenu, type ContextMenuItem, type MenuPosition } from '../base/ContextMenu.js'
 import { IconCopyOutline16, IconEditOutline16, IconRefreshOutline16 } from '../base/icons.js'
 import { showToast } from '../base/toastState.js'
+import { quoteMessageText } from './quote.js'
 
-/** 正文里的链接、代码块按钮等交互元素保留自己的行为，长按菜单不劫持它们 */
+/** 正文里的链接、代码块按钮等交互元素保留自己的行为，右键菜单不劫持它们 */
 const INTERACTIVE_SELECTOR = 'button, a, input, textarea, select, [role="button"]'
 
 const isInteractive = (target: EventTarget | null) =>
   target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
+
+const hasSelectionInside = (element: HTMLElement) => {
+  const selection = window.getSelection()
+  return (
+    !!selection &&
+    !selection.isCollapsed &&
+    selection.toString().trim() !== '' &&
+    !!selection.anchorNode &&
+    element.contains(selection.anchorNode)
+  )
+}
 
 const copyMessageText = (text: string) => {
   void copyText(text).then((ok) => {
@@ -24,23 +30,10 @@ const copyMessageText = (text: string) => {
   })
 }
 
-/** 以 Markdown 引用块插入草稿最前面，保留用户已经写好的内容。 */
-const quoteMessageText = (sessionId: string, text: string) => {
-  const content = text.trim()
-  if (!content) {
-    showToast({ key: 'quoteUnavailable' })
-    return
-  }
-  const quoted = content
-    .split('\n')
-    .map((line) => `> ${line}`.trimEnd())
-    .join('\n')
-  setDraftText(sessionId, `${quoted}\n\n${getDraft(sessionId).text}`)
-}
-
 /**
- * 消息长按 / 右键菜单：复制、引用（有正文时），以及重新生成（助手）或编辑（用户）。
- * 返回要挂到消息正文上的手势处理器和菜单元素（portal，放在组件任意位置即可）。
+ * 消息右键菜单（桌面端）：复制、引用（有正文时），以及重新生成（助手）或编辑（用户）。
+ * 触屏长按不拦截，交给系统原生选词；整段操作走消息下方的按钮栏。
+ * 返回要挂到消息正文上的处理器和菜单元素（portal，放在组件任意位置即可）。
  */
 export const useMessageMenu = ({
   sessionId,
@@ -59,7 +52,6 @@ export const useMessageMenu = ({
   const t = useTranslate()
   const [position, setPosition] = useState<MenuPosition | null>(null)
   const close = useCallback(() => setPosition(null), [])
-  const longPress = useLongPress(setPosition)
   const items: ContextMenuItem[] = []
   if (text) {
     items.push({
@@ -92,18 +84,17 @@ export const useMessageMenu = ({
     })
   }
   const handlers = {
-    onTouchStart: (event: TouchEvent<HTMLElement>) => {
-      if (!isInteractive(event.target)) {
-        longPress.onTouchStart(event)
-      }
-    },
-    onTouchMove: longPress.onTouchMove,
-    onTouchEnd: longPress.onTouchEnd,
-    onTouchCancel: longPress.onTouchCancel,
     onContextMenu: (event: MouseEvent<HTMLElement>) => {
-      if (!isInteractive(event.target)) {
-        longPress.onContextMenu(event)
+      // 触屏长按交给系统原生选词
+      if (window.matchMedia('(hover: none)').matches) {
+        return
       }
+      // 已有选区时放给系统菜单，方便复制选中片段
+      if (hasSelectionInside(event.currentTarget) || isInteractive(event.target)) {
+        return
+      }
+      event.preventDefault()
+      setPosition({ x: event.clientX, y: event.clientY })
     },
   }
   return {

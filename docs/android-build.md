@@ -12,9 +12,15 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionCode 11` / `versionName 0.6.2`（改 `android/app/build.gradle`）
+- 版本：`versionCode 12` / `versionName 0.6.3`（改 `android/app/build.gradle`）
 - 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**）。构建 release 前必须设置
   `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD`，构建脚本不再提供默认口令
+- **0.6.3 签名更换**：旧 keystore 口令丢失且无法恢复，0.6.3 使用新生成的密钥；旧文件备份在
+  `android/app/pocketseek-release.jks.old-20261122`。新签名的 APK 不能覆盖 ≤0.6.2
+  （需先在旧版导出历史 → 卸载 → 安装 → 导入）。新证书 SHA-256：
+  `84d17619b2d27e85dd061f42d0d2c1b2bc07dd2900cc2d9adbda499a1204f66b`
+- 口令只保存在项目根目录 `.env.release.local`（已被 `.gitignore` 的 `.env.*` 覆盖，不会入库）；
+  请连同 keystore 一起备份
 
 ## 工具链（本机已装好，可复现）
 
@@ -36,6 +42,9 @@
 > Windows 的 cmd / PowerShell 与 Git Bash 都可直接执行。
 
 ```sh
+# 0) 本机口令写在项目根目录 .env.release.local 时，先载入环境变量
+set -a; . ./.env.release.local; set +a
+
 # 1) 构建 Web 产物并同步进 Android 工程
 pnpm build
 npx cap sync android
@@ -96,5 +105,6 @@ sdk.dir=D:/DeepSeekApp/.android-sdk
 # 改 versionName / versionCode 后
 pnpm build && npx cap sync android
 cd android && export JAVA_HOME="D:/DeepSeekApp/.tools/jdk21" && ./gradlew assembleRelease
-# 重新侧载；包名不变、签名不变即可覆盖安装，数据保留
+# 重新侧载；0.6.3 起包名与签名不变即可覆盖安装，数据保留
+# 注意：≤0.6.2 → 0.6.3 因更换签名，需先导出历史、卸载旧版再安装
 ```

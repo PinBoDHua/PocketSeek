@@ -23,7 +23,7 @@ android/app/build/
 android/local.properties
 android/capacitor-cordova-android-plugins/build/
 
-android/app/pocketseek-release.jks
+android/app/pocketseek-release.jks*
 
 # cap sync 生成的原生资源与插件壳（pnpm build && npx cap sync android 可重建）
 android/app/src/main/assets/public/

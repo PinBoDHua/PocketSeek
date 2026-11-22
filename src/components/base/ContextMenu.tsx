@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './ContextMenu.module.css'
 
@@ -13,70 +13,7 @@ export type ContextMenuItem = {
 export type MenuPosition = { x: number; y: number }
 
 /**
- * 长按 / 右键手势：触摸设备长按 450ms 触发，桌面端右键触发。
- * 返回一组事件处理器，挂到消息容器等需要上下文菜单的元素上。
- */
-export const useLongPress = (onLongPress: (position: MenuPosition) => void, delay = 450) => {
-  const timer = useRef<number | null>(null)
-  const origin = useRef<{ x: number; y: number } | null>(null)
-
-  const clear = useCallback(() => {
-    if (timer.current !== null) {
-      window.clearTimeout(timer.current)
-      timer.current = null
-    }
-    origin.current = null
-  }, [])
-
-  useEffect(() => clear, [clear])
-
-  const onTouchStart = (event: React.TouchEvent) => {
-    if (event.touches.length !== 1) {
-      clear()
-      return
-    }
-    const touch = event.touches[0]
-    origin.current = { x: touch.clientX, y: touch.clientY }
-    timer.current = window.setTimeout(() => {
-      timer.current = null
-      // 长按打开自定义菜单前清掉系统文本选择，避免菜单与系统选择手柄同时出现
-      window.getSelection()?.removeAllRanges()
-      onLongPress({ x: touch.clientX, y: touch.clientY })
-    }, delay)
-  }
-
-  const onTouchMove = (event: React.TouchEvent) => {
-    const start = origin.current
-    const touch = event.touches[0]
-    if (
-      start &&
-      touch &&
-      (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10)
-    ) {
-      clear()
-    }
-  }
-
-  const onContextMenu = (event: React.MouseEvent) => {
-    // 触屏设备用长按，避免右键菜单与长按菜单同时出现
-    if (window.matchMedia('(hover: none)').matches) {
-      return
-    }
-    event.preventDefault()
-    onLongPress({ x: event.clientX, y: event.clientY })
-  }
-
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd: clear,
-    onTouchCancel: clear,
-    onContextMenu,
-  }
-}
-
-/**
- * 上下文菜单：贴在长按位置弹出，自动避开视口边缘；
+ * 上下文菜单：贴在右键位置弹出，自动避开视口边缘；
  * 点外部、按 Esc 或滚动时关闭。
  */
 export const ContextMenu = ({
@@ -110,7 +47,11 @@ export const ContextMenu = ({
       return
     }
     const onPointerDown = (event: Event) => {
-      if (menuRef.current && event.target instanceof Node && menuRef.current.contains(event.target)) {
+      if (
+        menuRef.current &&
+        event.target instanceof Node &&
+        menuRef.current.contains(event.target)
+      ) {
         return
       }
       onClose()

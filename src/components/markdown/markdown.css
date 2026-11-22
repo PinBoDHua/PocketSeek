@@ -1,6 +1,9 @@
 .ds-markdown {
   font: var(--dsw-font-markdown-base);
   color: var(--dsw-alias-label-primary);
+  /* 正文始终允许选词，长按交给系统选择手柄与复制菜单 */
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* 阅读体验设置：正文字号与行距（设置 → 阅读体验），标题与代码块保持自身 token */
