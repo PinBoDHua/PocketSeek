@@ -19,6 +19,6 @@ const safeName = (name: string) => {
   return result === '' || result === '.' || result === '..' ? 'unnamed' : result
 }
 
-/** chat_sessions/{session_id}_files/{file_id}_{file_name}；与 ZIP 读写端一致使用 NFC。 */
-export const imagePath = (sessionId: string, fileId: string, fileName: string) =>
+/** chat_sessions/{session_id}_files/{file_id}_{file_name}；图片与文档共用，ZIP 读写端统一使用 NFC。 */
+export const filePath = (sessionId: string, fileId: string, fileName: string) =>
   `${sessionFilesDir(sessionId)}${safeName(fileId)}_${safeName(fileName)}`.normalize('NFC')

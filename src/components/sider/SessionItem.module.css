@@ -11,6 +11,15 @@
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
 
+  &:focus-visible {
+    outline: 2px solid var(--dsw-alias-brand-primary);
+    outline-offset: -2px;
+  }
+
+  &:focus-within .action {
+    display: flex;
+  }
+
   &.active {
     background-color: var(--dsw-specific-sidebar-nav-item-active-accent);
     color: var(--dsw-alias-brand-primary-invert);

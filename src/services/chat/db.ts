@@ -82,18 +82,28 @@ export const loadSession = async (id: string): Promise<Session | undefined> =>
   (await getDB()).get('sessions', id)
 
 /** 全库搜索与用量统计一次读出全部会话；不经过会话详情缓存，避免把缓存填满。 */
-export const loadAllSessions = async (): Promise<Session[]> =>
-  (await getDB()).getAll('sessions')
+export const loadAllSessions = async (): Promise<Session[]> => (await getDB()).getAll('sessions')
 
-export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
+export type SaveSessionResult = { filesSaved: boolean; filesError?: unknown }
+
+export const saveSession = async (
+  session: Session,
+  files: StoredFile[] = []
+): Promise<SaveSessionResult> => {
+  // 附件单独事务：配额不足时只牺牲附件，文字与消息仍然落盘。
+  let filesError: unknown
+  if (files.length > 0) {
+    try {
+      await putFiles('files', files)
+    } catch (error) {
+      filesError = error
+    }
+  }
   const summary = storedSummary(session)
-  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
+  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
   await Promise.all([
     (async () => {
       try {
-        for (const file of files) {
-          await tx.objectStore('files').put(file)
-        }
         await tx.objectStore('sessions').put(session)
         await tx.objectStore('sessionSummaries').put(summary)
       } catch (error) {
@@ -103,6 +113,7 @@ export const saveSession = async (session: Session, files: StoredFile[] = []): P
     })(),
     tx.done,
   ])
+  return filesError === undefined ? { filesSaved: true } : { filesSaved: false, filesError }
 }
 
 /** 未打开的会话也可重命名，只读取该会话，原子更新详情和列表。 */

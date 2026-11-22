@@ -4,6 +4,11 @@ const READ_CHUNK_BYTES = 256 * 1024
 // 控制每轮同步解压的工作量；输出交给调用方保存后才继续读取。
 const INFLATE_CHUNK_BYTES = 8 * 1024
 
+/** 导入资源上限：单条目不超过应用允许的最大附件，整包控制在一次可恢复的内存/存储范围内。 */
+export const MAX_ARCHIVE_ENTRY_BYTES = 64 * 1024 * 1024
+export const MAX_ARCHIVE_TOTAL_BYTES = 512 * 1024 * 1024
+export const MAX_ARCHIVE_ENTRIES = 10_000
+
 /** ZIP 结构损坏或使用了不支持的特性 */
 export class ArchiveError extends Error {
   constructor() {
@@ -106,6 +111,9 @@ const readDirectory = async (file: File): Promise<{ entries: Entry[]; offset: nu
   const count = tailView.getUint16(end + 10, true)
   const size = tailView.getUint32(end + 12, true)
   const offset = tailView.getUint32(end + 16, true)
+  if (count > MAX_ARCHIVE_ENTRIES) {
+    invalid()
+  }
   if (
     tailView.getUint16(end + 4, true) !== 0 ||
     tailView.getUint16(end + 6, true) !== 0 ||
@@ -120,6 +128,7 @@ const readDirectory = async (file: File): Promise<{ entries: Entry[]; offset: nu
   const entries: Entry[] = []
   const paths = new Set<string>()
   let cursor = 0
+  let totalSize = 0
   for (let index = 0; index < count; index++) {
     if (cursor + 46 > size) {
       invalid()
@@ -132,6 +141,13 @@ const readDirectory = async (file: File): Promise<{ entries: Entry[]; offset: nu
     const method = view.getUint16(10, true)
     const compressedSize = view.getUint32(20, true)
     const entrySize = view.getUint32(24, true)
+    if (entrySize > MAX_ARCHIVE_ENTRY_BYTES) {
+      invalid()
+    }
+    totalSize += entrySize
+    if (totalSize > MAX_ARCHIVE_TOTAL_BYTES) {
+      invalid()
+    }
     const nameLength = view.getUint16(28, true)
     const extraLength = view.getUint16(30, true)
     const next = cursor + 46 + nameLength + extraLength + view.getUint16(32, true)

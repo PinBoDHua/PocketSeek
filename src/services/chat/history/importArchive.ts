@@ -13,8 +13,8 @@ import {
   type ArchiveEntry,
 } from './zipReader.js'
 
-/** 从原件字节补充图片 MIME；无法识别时为空字符串，图片身份仍由归档的 is_image 决定。 */
-const imageType = (bytes: Uint8Array): string => {
+/** 从原件字节补充 MIME；无法识别时为空字符串，图片身份仍由归档的 is_image 决定。 */
+const detectFileType = (bytes: Uint8Array): string => {
   const startsWith = (...prefix: number[]) => prefix.every((byte, index) => bytes[index] === byte)
   const header = new TextDecoder('ascii').decode(bytes.subarray(0, 12))
   if (startsWith(0xff, 0xd8, 0xff)) {
@@ -37,6 +37,9 @@ const imageType = (bytes: Uint8Array): string => {
   }
   if (header.slice(4, 8) === 'ftyp' && ['avif', 'avis'].includes(header.slice(8, 12))) {
     return 'image/avif'
+  }
+  if (header.startsWith('%PDF-')) {
+    return 'application/pdf'
   }
   return ''
 }
@@ -73,9 +76,9 @@ export const checkArchiveFormat = async (file: File): Promise<void> => {
 }
 
 /**
- * 流式导入：manifest → user（不导入）→ 全部会话 JSON → index → 全部图片。
- * 也支持会话与图片交错排列、index 位于末尾的条目顺序。
- * 会话读完立即暂存，只保留图片路径映射；图片全部读完后逐会话回填 MIME，不改变图片身份。
+ * 流式导入：manifest → user（不导入）→ 全部会话 JSON → index → 全部附件原件。
+ * 也支持会话与附件交错排列、index 位于末尾的条目顺序。
+ * 会话读完立即暂存，只保留附件路径映射；原件全部读完后逐会话回填 MIME。
  * 写入导入暂存存储；调用方负责先清空暂存，成功后替换正式数据，失败时清理暂存。
  */
 export const importArchive = async (file: File): Promise<void> => {
@@ -83,20 +86,20 @@ export const importArchive = async (file: File): Promise<void> => {
     fail('backupUnrecognized')
   }
   const imported = new Set<string>()
-  const images = new Map<string, string>()
-  /** 已保存的原件：文件 ID → MIME。同一图片出现在多个会话目录时只保存一次。 */
+  const files = new Map<string, string>()
+  /** 已保存的原件：文件 ID → MIME。同一附件出现在多个会话目录时只保存一次。 */
   const stored = new Map<string, string>()
   let manifest = false
   let index: SessionIndexEntry[] | undefined
   let currentSessionId: string | undefined
 
-  const saveImage = async (entry: ArchiveEntry, id: string) => {
+  const saveFile = async (entry: ArchiveEntry, id: string) => {
     if (stored.has(id)) {
       await skipEntry(entry)
       return
     }
     const data = await readEntry(entry)
-    const type = imageType(new Uint8Array(await data.slice(0, 16).arrayBuffer()))
+    const type = detectFileType(new Uint8Array(await data.slice(0, 16).arrayBuffer()))
     await db.saveStagingFiles([{ id, blob: new Blob([data], { type }) }])
     stored.set(id, type)
   }
@@ -121,8 +124,8 @@ export const importArchive = async (file: File): Promise<void> => {
         }
         imported.add(sessionId)
         currentSessionId = sessionId
-        for (const [imagePath, id] of local.images) {
-          images.set(imagePath, id)
+        for (const [path, id] of local.files) {
+          files.set(path, id)
         }
         await db.addStagingSession(local.session)
       } else if (path === INDEX_PATH && !index) {
@@ -132,9 +135,9 @@ export const importArchive = async (file: File): Promise<void> => {
           ? imported.has(/^chat_sessions\/([^/]+)_files\//.exec(path)?.[1] ?? '')
           : currentSessionId && path.startsWith(sessionFilesDir(currentSessionId))
       ) {
-        // 没有被引用的条目不保存，引用了但缺失的图片只展示文件名。
-        const id = images.get(path)
-        await (id === undefined ? skipEntry(entry) : saveImage(entry, id))
+        // 没有被引用的条目不保存，引用了但缺失的原件只展示文件名。
+        const id = files.get(path)
+        await (id === undefined ? skipEntry(entry) : saveFile(entry, id))
       } else {
         fail('backupIncomplete')
       }

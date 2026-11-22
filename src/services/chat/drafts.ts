@@ -133,7 +133,9 @@ export const addDraftFiles = (
   if (files.length === 0) {
     return null
   }
-  const error = validateFiles(files, getDraft(sessionId).attachments.length)
+  const draft = getDraft(sessionId)
+  const currentBytes = draft.attachments.reduce((sum, item) => sum + item.file.size, 0)
+  const error = validateFiles(files, draft.attachments.length, currentBytes)
   if (error) {
     return error
   }

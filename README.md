@@ -35,6 +35,15 @@
 
 ## 更新日志
 
+### 0.6.1 — 安全审计修复
+
+- **渲染链**：升级 Mermaid / KaTeX 并锁定依赖，`pnpm audit --prod` 清零；Mermaid 渲染前剥离指令与 frontmatter；生产构建加入 CSP 与 `Referrer-Policy`
+- **API Key**：原生壳改用 Android Keystore 加密存储（AES/GCM），旧 Key 启动时自动迁移并删除明文；备份排除密钥与 WebView Local Storage
+- **导入导出**：ZIP 导入限制单条目 64MB / 总量 512MB / 1 万条目；导出包含全部本地附件原件，导入后文档附件可继续使用
+- **持久化**：发送失败可恢复草稿文字；附件改为独立事务，配额不足不再阻塞文字保存；单消息附件总量上限 128MB
+- **无障碍**：会话列表支持键盘 Enter/Space 切换、焦点样式与 `aria-current`
+- 详细审计报告：[docs/audit-2026-11-22.md](docs/audit-2026-11-22.md)
+
 ### 0.6.0 — 离线发件箱
 
 **断网也能先发出去**
@@ -156,7 +165,7 @@
 - **阅读体验**：正文字号 / 行距 / 消息宽度可调，选中文本品牌色高亮
 - **用量与费用**：每条回复下方显示「本回合」的输入 / 缓存命中 / 输出 tokens 与按官方价目估算的人民币费用（品牌色胶囊突出，可在设置中关闭）；设置 → 用量统计汇总全部会话的总量、近 7 天趋势与按模型拆分
 - **渲染**：Markdown、代码高亮、KaTeX 公式、Mermaid 图表
-- **本地优先**：会话/附件存 IndexedDB，API Key 与设置存 localStorage；支持 ZIP 历史导入导出（兼容 DeepSeek 官方导出格式）
+- **本地优先**：会话/附件存 IndexedDB，API Key 在原生壳内使用 Android Keystore 加密存储（浏览器版存 localStorage）；支持 ZIP 历史导入导出（兼容 DeepSeek 官方导出格式，含本地附件原件）
 - **品牌**：口袋 + 星芒应用图标，首页品牌头像、侧边栏与关于页统一标识；PWA / favicon / Android 自适应与单色图标 / 启动图同步更新
 - **手机端**：单栏会话 + 抽屉会话列表、安全区适配（含 Android 原生壳）、键盘弹起适配、深色主题跟随系统并同步系统栏图标与窗口底色、空态品牌头像与快捷提问、触屏常显操作按钮、中文单语
 - **PWA**：manifest / 图标 / Service Worker 离线壳 / 安装引导（需要 HTTPS 或 localhost 才生效）
@@ -182,14 +191,14 @@ pnpm serve        # 默认 http://0.0.0.0:4173
 
 **方式一（推荐）：装 APK**
 
-已构建并签名的安装包：[`release/PocketSeek-0.6.0.apk`](release/PocketSeek-0.6.0.apk)（约 5.2MB，Android 7.0+，sha256 见 `release/PocketSeek-0.6.0.apk.sha256`）
+已构建并签名的安装包：[`release/PocketSeek-0.6.1.apk`](release/PocketSeek-0.6.1.apk)（约 5.2MB，Android 7.0+，sha256 见 `release/PocketSeek-0.6.1.apk.sha256`）
 
 1. 把 APK 传到手机（微信文件传输 / 数据线 / 网盘均可）。
 2. 点击安装；系统提示「未知来源」时允许该来源。
 3. 打开 PocketSeek → 设置 → 数据管理 → 填入 DeepSeek API Key。
 4. 之后无需电脑、无需浏览器，像普通 App 一样使用。
 
-包名 `com.pocketseek.app`，版本 `0.6.0`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。从 0.5.x 覆盖安装即可，本地数据与 API Key 保留。
+包名 `com.pocketseek.app`，版本 `0.6.1`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。从 0.5.x/0.6.0 覆盖安装即可，本地数据与 API Key 保留。
 重新构建见 [docs/android-build.md](docs/android-build.md)：Capacitor 8 + JDK 21 + 自建 Android SDK，全部走国内镜像，无需 Android Studio。
 
 **方式二：手机浏览器**
@@ -259,6 +268,7 @@ pnpm serve
 - ✅ **快捷输入**：0.4.0 完成可管理的提示词库，首页与输入框共用。
 - ✅ **接收分享**：0.5.0 完成从系统分享文本/图片进入草稿（Android 壳 + PWA 文本/链接）。
 - ✅ **离线发件箱**：0.6.0 完成断网暂存、联网自动补发，以及立即重试与取消还原。
+- ✅ **安全加固**：0.6.1 完成渲染链、API Key 存储、ZIP 导入、持久化、附件备份与会话列表无障碍修复。
 - ⏳ **公网 HTTPS**：仓库带 `.github/workflows/pages.yml`，推到 GitHub 开启 Pages 即可获得可安装的 PWA。
 - ⏳ 正式上架应用商店：需要换正式发布密钥（当前为自签）、补隐私政策与年龄分级。
 

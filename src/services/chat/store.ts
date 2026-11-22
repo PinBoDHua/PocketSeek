@@ -212,7 +212,9 @@ const updateReply = (sessionId: string, reply: AssistantMessage) =>
     ),
   }))
 
-const persist = (sessionId: string) => {
+type DraftRecovery = { draftSessionId: string | null; text: string }
+
+const persist = (sessionId: string, recovery?: DraftRecovery) => {
   const session = getSession(sessionId)
   if (session) {
     unsavedSessions.add(sessionId)
@@ -223,21 +225,30 @@ const persist = (sessionId: string) => {
     const files = pendingFiles.get(sessionId)
     void db
       .saveSession(session, files)
-      .then(() => {
+      .then((result) => {
         if (epoch !== historyEpoch || !getSession(sessionId)) {
           return
         }
-        if (pendingFiles.get(sessionId) === files) {
+        const current = getSession(sessionId)
+        if (result.filesSaved && pendingFiles.get(sessionId) === files) {
           pendingFiles.delete(sessionId)
         }
-        if (getSession(sessionId) === session) {
-          unsavedSessions.delete(sessionId)
-          set((state) => ({
-            sessionSaveErrors: Object.fromEntries(
-              Object.entries(state.sessionSaveErrors).filter(([id]) => id !== sessionId)
-            ),
-          }))
-          trimSessionCache()
+        if (current === session) {
+          if (result.filesSaved) {
+            unsavedSessions.delete(sessionId)
+            set((state) => ({
+              sessionSaveErrors: Object.fromEntries(
+                Object.entries(state.sessionSaveErrors).filter(([id]) => id !== sessionId)
+              ),
+            }))
+            trimSessionCache()
+          } else {
+            // 文字已保存，附件失败时保留待重试状态与 pendingFiles。
+            db.reportStorageError('save session attachments')(result.filesError)
+            set((state) => ({
+              sessionSaveErrors: { ...state.sessionSaveErrors, [sessionId]: true },
+            }))
+          }
         }
       })
       .catch((error: unknown) => {
@@ -246,6 +257,10 @@ const persist = (sessionId: string) => {
           set((state) => ({
             sessionSaveErrors: { ...state.sessionSaveErrors, [sessionId]: true },
           }))
+          // 恢复发送时清掉的草稿文字（用户已重新输入时不覆盖）。
+          if (recovery && !getDraft(recovery.draftSessionId).text) {
+            setDraftText(recovery.draftSessionId, recovery.text)
+          }
         }
       })
   }
@@ -253,7 +268,7 @@ const persist = (sessionId: string) => {
 
 export const retrySaveSessions = () => {
   if (!get().importingHistory) {
-    unsavedSessions.forEach(persist)
+    unsavedSessions.forEach((sessionId) => persist(sessionId))
   }
 }
 
@@ -684,7 +699,8 @@ export const sendMessage = (targetSessionId: string | null): 'sent' | 'queued' |
       ...files.map(({ id, blob }) => ({ id, blob })),
     ])
   }
-  persist(sessionId)
+  const draftText = getDraft(targetSessionId).text
+  persist(sessionId, { draftSessionId: targetSessionId, text: draftText })
   clearSentDraft(targetSessionId)
   if (queued) {
     addOutboxEntry({

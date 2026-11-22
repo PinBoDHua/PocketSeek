@@ -14,6 +14,13 @@ const loadMermaid = () => {
   return mermaidPromise
 }
 
+/**
+ * 移除 Mermaid 指令与 YAML frontmatter：主题由本应用控制，不允许模型通过
+ * themeCSS/config 注入全局样式或改写渲染配置。
+ */
+const stripMermaidConfig = (code: string) =>
+  code.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').replace(/%%\{[\s\S]*?\}%%/g, '')
+
 /** 转义图片标签，对同一图中的全部标签生效。 */
 const sanitizeMermaid = (code: string) => code.replace(/<((?:img|image)\s+)/gi, '&lt;$1')
 
@@ -24,7 +31,8 @@ export const renderMermaid = (
   isCancelled: () => boolean
 ): Promise<string | null> => {
   const result = renderQueue.then(async () => {
-    if (isCancelled() || !code.trim()) {
+    const source = sanitizeMermaid(stripMermaidConfig(code))
+    if (isCancelled() || !source.trim()) {
       return null
     }
 
@@ -40,7 +48,7 @@ export const renderMermaid = (
       suppressErrorRendering: true,
     })
 
-    const { svg } = await mermaid.render(`standalone-mermaid-${nextId++}`, sanitizeMermaid(code))
+    const { svg } = await mermaid.render(`standalone-mermaid-${nextId++}`, source)
     return isCancelled() ? null : svg
   })
 

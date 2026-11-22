@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 及以下：聊天数据可备份，但排除 Keystore 加密后的 API Key 密文。 -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="pocketseek_secure.xml" />
+    <!-- 旧版本 Key 可能以删除标记残留在 LevelDB 中；备份不携带 Local Storage。 -->
+    <exclude domain="root" path="app_webview/Default/Local Storage" />
+</full-backup-content>

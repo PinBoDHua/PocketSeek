@@ -19,8 +19,8 @@ import { sessionFilesDir } from './paths.js'
 
 export type LocalSession = {
   session: Session
-  /** 本会话目录下应存在的图片：ZIP 条目名 → 文件 ID */
-  images: Map<string, string>
+  /** 本会话目录下应存在的附件原件：ZIP 条目名 → 文件 ID（图片与文档） */
+  files: Map<string, string>
 }
 
 const time = (value: string) => Date.parse(value)
@@ -280,31 +280,28 @@ export const toLocalSession = (file: SessionFile): LocalSession => {
     updatedAt: time(file.updated_at),
     ...buildTree(file),
   }
-  const images = new Map<string, string>()
+  const files = new Map<string, string>()
   for (const message of file.messages) {
     for (const item of message.fragments) {
       if (item.type !== 'FILE') {
         continue
       }
       for (const entry of item.files) {
-        if (!entry.is_image) {
-          continue
-        }
         // 读取端把条目名规范为 NFC，引用也按同样规则比较。
         const path = entry.export_path?.normalize('NFC')
         if (path === undefined) {
           continue
         }
-        // 图片只能在本会话目录下，同一条目不能对应不同文件。
+        // 原件只能在本会话目录下，同一条目不能对应不同文件。
         if (
           !path.startsWith(sessionFilesDir(file.id)) ||
-          (images.get(path) ?? entry.id) !== entry.id
+          (files.get(path) ?? entry.id) !== entry.id
         ) {
           fail('backupInvalidFiles')
         }
-        images.set(path, entry.id)
+        files.set(path, entry.id)
       }
     }
   }
-  return { session, images }
+  return { session, files }
 }

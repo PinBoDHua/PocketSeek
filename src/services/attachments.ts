@@ -17,6 +17,8 @@ export const MAX_SIZE_MB = 64
 /** 按 user_data 上传的文件（纯文本、代码、表格、电子书）原文件上限更小 */
 export const MAX_USER_DATA_SIZE_MB = 32
 export const MAX_COUNT = 50
+/** 单条消息附件总大小上限，避免一次事务写入数 GB 导致配额失败。 */
+export const MAX_TOTAL_SIZE_MB = 128
 /** 同时上传的文件数 */
 const MAX_CONCURRENT = 3
 
@@ -45,8 +47,12 @@ const getMaxSizeMB = (file: File) =>
     ? MAX_USER_DATA_SIZE_MB
     : MAX_SIZE_MB
 
-/** 添加前校验：格式 → 大小 → 数量，任一不满足即整批不添加 */
-export const validateFiles = (files: File[], currentCount: number): TranslationMessage | null => {
+/** 添加前校验：格式 → 单文件大小 → 数量 → 总大小，任一不满足即整批不添加 */
+export const validateFiles = (
+  files: File[],
+  currentCount: number,
+  currentBytes = 0
+): TranslationMessage | null => {
   if (files.some((file) => !isAcceptedExt(file.name))) {
     return { key: 'uploadUnsupportedFormat' }
   }
@@ -56,6 +62,10 @@ export const validateFiles = (files: File[], currentCount: number): TranslationM
   }
   if (currentCount + files.length > MAX_COUNT) {
     return { key: 'uploadMaxFiles', params: { count: MAX_COUNT } }
+  }
+  const totalBytes = files.reduce((sum, file) => sum + file.size, currentBytes)
+  if (totalBytes > MAX_TOTAL_SIZE_MB * 1024 * 1024) {
+    return { key: 'uploadMaxTotalSize', params: { size: MAX_TOTAL_SIZE_MB } }
   }
   return null
 }

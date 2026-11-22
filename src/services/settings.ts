@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ChatModel, ThinkEffort } from './api/types.js'
 import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
+import { initialApiKey, loadApiKey, persistApiKey } from './secureKey.js'
 
 /** 应用界面固定为简体中文（PocketSeek 为中文单语客户端） */
 export type Locale = 'zh-CN'
@@ -39,7 +40,6 @@ type Settings = {
 }
 
 const KEYS = {
-  apiKey: 'pocketseek:api-key',
   location: 'pocketseek:location',
   themePreference: 'pocketseek:theme-preference',
   ttsVoice: 'pocketseek:tts-voice',
@@ -119,7 +119,7 @@ const initialChoice = <T extends string>(key: string, options: readonly T[], fal
 }
 
 export const useSettings = create<Settings>(() => ({
-  apiKey: read(KEYS.apiKey),
+  apiKey: initialApiKey(),
   locale: 'zh-CN',
   location: initialLocation(),
   themePreference: initialThemePreference(),
@@ -154,8 +154,13 @@ export const setTtsVoice = (ttsVoice: TtsVoice) => {
   useSettings.setState({ ttsVoice })
 }
 
-export const setApiKey = (apiKey: string | null) => {
-  write(KEYS.apiKey, apiKey)
+/** 原生壳在首屏渲染前调用，完成 Keystore 读取与旧 localStorage 迁移。 */
+export const hydrateApiKey = async () => {
+  useSettings.setState({ apiKey: await loadApiKey() })
+}
+
+export const setApiKey = async (apiKey: string | null) => {
+  await persistApiKey(apiKey)
   useSettings.setState({ apiKey })
 }
 

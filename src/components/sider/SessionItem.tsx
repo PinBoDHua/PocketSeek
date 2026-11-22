@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo, useState } from 'react'
+import { memo, useState, type KeyboardEvent } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import {
   IconCheckOutline16,
@@ -63,17 +63,35 @@ export const SessionItem = memo(function SessionItem({
     )
   }
 
+  const activate = () => {
+    if (selectMode) {
+      onToggleSelect(session.id)
+      return
+    }
+    selectSession(session.id)
+    closeMobileSider()
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // 只处理会话行本身；重命名输入框与“更多”按钮有各自的键盘行为。
+    if (event.target !== event.currentTarget) {
+      return
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      activate()
+    }
+  }
+
   return (
     <div
       className={clsx(styles.item, active && styles.active)}
-      onClick={() => {
-        if (selectMode) {
-          onToggleSelect(session.id)
-          return
-        }
-        selectSession(session.id)
-        closeMobileSider()
-      }}
+      role="button"
+      tabIndex={0}
+      aria-current={active ? 'page' : undefined}
+      aria-pressed={selectMode ? selected : undefined}
+      onClick={activate}
+      onKeyDown={onKeyDown}
     >
       {pinned ? (
         <span className={styles.pinMark} aria-hidden>

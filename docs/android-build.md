@@ -12,7 +12,7 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionCode 9` / `versionName 0.6.0`（改 `android/app/build.gradle`）
+- 版本：`versionCode 10` / `versionName 0.6.1`（改 `android/app/build.gradle`）
 - 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**，密码默认 `pocketseek2026`，可用
   `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD` 覆盖）
 
