@@ -51,6 +51,7 @@ export const MobileHeader = ({ title, session }: { title?: string; session?: Ses
             className={clsx(styles.modelChip, open && styles.modelChipOpen)}
             aria-label={t('modelTooltip')}
             aria-haspopup="menu"
+            aria-expanded={open}
             onClick={toggle}
           >
             <IconModelOutline16 />

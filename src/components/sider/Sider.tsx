@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useFocusTrap } from '../base/useFocusTrap.js'
 import { useTranslate } from '../../i18n/index.js'
 import {
   IconChevronDownOutline14,
@@ -67,7 +68,7 @@ const highlightSnippet = (text: string, query: string): ReactNode => {
  * 多选时列表底部换成批量操作工具条。移动端放在抽屉里，收起按钮关闭抽屉。
  * 搜索同时匹配会话标题与消息正文，点消息结果可直接跳到对应位置。
  */
-export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
+export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean }) {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
   const activeId = useChatStore((state) => state.activeId)
@@ -100,10 +101,11 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setSearchPending(true)
     setSearchResult(null)
     const timer = setTimeout(() => {
-      void searchAllSessions(keyword)
+      void searchAllSessions(keyword, controller.signal)
         .then((result) => {
           if (!cancelled) {
             setSearchResult(result)
@@ -121,6 +123,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     }, 200)
     return () => {
       cancelled = true
+      controller.abort()
       clearTimeout(timer)
     }
   }, [query, sessions])
@@ -462,20 +465,22 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
       ) : null}
     </div>
   )
-}
+})
 
 /** 移动端抽屉：浮在页面上方，点空白区域关闭。 */
-export const MobileSider = () => {
+export const MobileSider = memo(function MobileSider() {
   const open = useMobileSider((state) => state.open)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(open, drawerRef, closeMobileSider)
   if (!open) {
     return null
   }
   return (
     <>
       <div className={styles.drawerMask} onClick={closeMobileSider} />
-      <div className={styles.drawer}>
+      <div ref={drawerRef} className={styles.drawer} role="dialog" aria-modal="true" tabIndex={-1}>
         <Sider mobile />
       </div>
     </>
   )
-}
+})

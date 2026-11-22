@@ -253,6 +253,8 @@ export const toSessionFile = (original: Session, exportFile: ExportFile): Sessio
       inserted_at: iso(message.createdAt),
       fragments:
         message.role === 'user' ? userFragments(message, exportFile) : assistantFragments(message),
+      usage: message.role === 'assistant' ? (message.usage ?? null) : null,
+      latest_reminder: message.role === 'assistant' ? (message.latestReminder ?? null) : null,
     }
   })
   const current = getVisibleMessages(session).at(-1)

@@ -145,7 +145,7 @@
     width: 100%;
     max-width: none;
     max-height: min(86vh, 800px);
-    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    padding-bottom: calc(22px + var(--safe-area-bottom));
     border-radius: 24px 24px 0 0;
   }
 

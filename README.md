@@ -35,6 +35,16 @@
 
 ## 更新日志
 
+### 0.6.2 — 中危审计修复
+
+- **分享**：原生分享文本/待处理队列限额，图片改为逐张跨桥；PWA 分享目标改 POST multipart；导入历史期间的分享先暂存
+- **网络**：Key 校验/上传/转写/流式建连增加超时；SSE 与错误响应体大小上限；SW 只缓存成功响应；本地静态服务器路径与异常处理加固
+- **数据**：删除会话/清空历史后台清理远端 Files API 文件；多标签补发 Web Locks 串行化，会话 revision 防止旧快照覆盖；ZIP 归档保留用量与 latestReminder；IndexedDB 连接恢复
+- **持久化**：流式回答每 2 秒落盘；取消排队消息不再覆盖新草稿
+- **无障碍与性能**：Modal/菜单/下拉/移动面板焦点与键盘导航；图片附件懒加载；触摸滚动缓存祖先链；KaTeX 失败回退原文；安全区变量统一
+- **质量**：开启 `react/rules-of-hooks`，新增 9 个 Node 测试并接入 CI；release 构建必须提供签名口令环境变量
+- 详细审计报告：[docs/audit-2026-11-22.md](docs/audit-2026-11-22.md)
+
 ### 0.6.1 — 安全审计修复
 
 - **渲染链**：升级 Mermaid / KaTeX 并锁定依赖，`pnpm audit --prod` 清零；Mermaid 渲染前剥离指令与 frontmatter；生产构建加入 CSP 与 `Referrer-Policy`
@@ -62,7 +72,7 @@
 - 分享文本进入当前会话（或新对话）输入框，可编辑后再发送；冷启动与 App 运行中都能接收
 - 分享图片自动加入草稿附件（最多 6 张，单张上限 12MB），复用现有压缩、上传与 Pro 模型图片拦截规则
 - 未设置 API Key 时保留文字并引导设置；读取失败、格式不支持或超限的图片会提示跳过数量
-- PWA 新增 Web Share Target：安装到桌面后可从系统分享文本/链接，默认进入新对话草稿
+- PWA 新增 Web Share Target：安装到桌面后可从系统分享文本/链接，默认进入新对话草稿；使用 POST multipart，分享内容不进入页面 URL
 
 ### 0.4.0 — 快捷提示词库
 
@@ -191,14 +201,14 @@ pnpm serve        # 默认 http://0.0.0.0:4173
 
 **方式一（推荐）：装 APK**
 
-已构建并签名的安装包：[`release/PocketSeek-0.6.1.apk`](release/PocketSeek-0.6.1.apk)（约 5.2MB，Android 7.0+，sha256 见 `release/PocketSeek-0.6.1.apk.sha256`）
+已构建并签名的安装包：[`release/PocketSeek-0.6.2.apk`](release/PocketSeek-0.6.2.apk)（约 5.2MB，Android 7.0+，sha256 见 `release/PocketSeek-0.6.2.apk.sha256`）
 
 1. 把 APK 传到手机（微信文件传输 / 数据线 / 网盘均可）。
 2. 点击安装；系统提示「未知来源」时允许该来源。
 3. 打开 PocketSeek → 设置 → 数据管理 → 填入 DeepSeek API Key。
 4. 之后无需电脑、无需浏览器，像普通 App 一样使用。
 
-包名 `com.pocketseek.app`，版本 `0.6.1`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。从 0.5.x/0.6.0 覆盖安装即可，本地数据与 API Key 保留。
+包名 `com.pocketseek.app`，版本 `0.6.2`，targetSdk 36 / minSdk 24，自签证书（`CN=PocketSeek`）。从 0.5.x/0.6.x 覆盖安装即可，本地数据与 API Key 保留。
 重新构建见 [docs/android-build.md](docs/android-build.md)：Capacitor 8 + JDK 21 + 自建 Android SDK，全部走国内镜像，无需 Android Studio。
 
 **方式二：手机浏览器**
@@ -215,6 +225,7 @@ pnpm serve        # 默认 http://0.0.0.0:4173
 pnpm dev          # 开发服务器 http://localhost:8090
 pnpm type         # TypeScript 类型检查
 pnpm lint         # oxlint
+pnpm test         # Node 内置测试（SSE / URL / ZIP）
 pnpm build        # 生产构建到 dist/
 ```
 
@@ -268,7 +279,7 @@ pnpm serve
 - ✅ **快捷输入**：0.4.0 完成可管理的提示词库，首页与输入框共用。
 - ✅ **接收分享**：0.5.0 完成从系统分享文本/图片进入草稿（Android 壳 + PWA 文本/链接）。
 - ✅ **离线发件箱**：0.6.0 完成断网暂存、联网自动补发，以及立即重试与取消还原。
-- ✅ **安全加固**：0.6.1 完成渲染链、API Key 存储、ZIP 导入、持久化、附件备份与会话列表无障碍修复。
+- ✅ **安全加固**：0.6.1 完成 7 项高危修复；0.6.2 完成全部中危审计项（分享/网络/数据/持久化/无障碍/测试）。
 - ⏳ **公网 HTTPS**：仓库带 `.github/workflows/pages.yml`，推到 GitHub 开启 Pages 即可获得可安装的 PWA。
 - ⏳ 正式上架应用商店：需要换正式发布密钥（当前为自签）、补隐私政策与年龄分级。
 

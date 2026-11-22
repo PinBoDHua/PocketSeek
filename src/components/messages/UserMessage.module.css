@@ -70,6 +70,13 @@
   opacity: 1;
 }
 
+/* 触屏设备没有 hover：历史用户消息的复制/编辑按钮同样常显。 */
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
+
 .editor {
   width: 100%;
   box-sizing: border-box;

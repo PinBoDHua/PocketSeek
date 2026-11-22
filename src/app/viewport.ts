@@ -10,12 +10,9 @@ const subscribe = (onChange: () => void) => {
 
 export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
 
-const preventPageScroll = (event: TouchEvent) => {
-  if (event.touches.length !== 1) {
-    return
-  }
+const findScrollable = (target: EventTarget | null): Element | null => {
   for (
-    let element = event.target instanceof Element ? event.target : null;
+    let element = target instanceof Element ? target : null;
     element && element !== document.body;
     element = element.parentElement
   ) {
@@ -25,8 +22,24 @@ const preventPageScroll = (event: TouchEvent) => {
     const scrollsX =
       /auto|scroll/.test(style.overflowX) && element.scrollWidth > element.clientWidth
     if (scrollsY || scrollsX) {
-      return
+      return element
     }
+  }
+  return null
+}
+
+let scrollableElement: Element | null = null
+
+const onTouchStart = (event: TouchEvent) => {
+  scrollableElement = event.touches.length === 1 ? findScrollable(event.target) : null
+}
+
+const onTouchMove = (event: TouchEvent) => {
+  if (event.touches.length !== 1) {
+    return
+  }
+  if (scrollableElement?.isConnected) {
+    return
   }
   event.preventDefault()
 }
@@ -37,8 +50,12 @@ export const usePreventPageScroll = (enabled: boolean) => {
     if (!enabled) {
       return
     }
-    document.addEventListener('touchmove', preventPageScroll, { passive: false })
-    return () => document.removeEventListener('touchmove', preventPageScroll)
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchmove', onTouchMove)
+    }
   }, [enabled])
 }
 

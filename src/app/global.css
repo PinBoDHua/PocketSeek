@@ -8,6 +8,8 @@
    */
   --safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   /* 阅读体验（设置 → 阅读体验），默认与官方排版 token 一致：16px / 28px */
   --read-font-size: 16px;
   --read-line-height: 1.75;

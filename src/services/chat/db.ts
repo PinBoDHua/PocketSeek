@@ -55,6 +55,15 @@ const abortTransaction = (tx: { abort(): void }) => {
 // 每个操作拿到连接后立即创建事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前发起的写入。
 const getDB = () =>
   (dbPromise ??= openDB<ChatDB>('pocketseek', DB_VERSION, {
+    blocking() {
+      // 另一个标签页要升级数据库：关闭本连接，下次操作重新打开。
+      const pending = dbPromise
+      dbPromise = null
+      void pending?.then((db) => db.close()).catch(() => {})
+    },
+    terminated() {
+      dbPromise = null
+    },
     upgrade(db, _oldVersion, _newVersion, tx) {
       // 初始化当前格式需要的存储与索引，不迁移旧消息。
       for (const name of ['sessions', 'files', 'sessionsStaging', 'filesStaging'] as const) {
@@ -104,7 +113,19 @@ export const saveSession = async (
   await Promise.all([
     (async () => {
       try {
-        await tx.objectStore('sessions').put(session)
+        const sessions = tx.objectStore('sessions')
+        const existing = await sessions.get(session.id)
+        if (
+          existing?.revision !== undefined &&
+          session.revision !== undefined &&
+          (existing.revision > session.revision ||
+            (existing.revision === session.revision && existing.revisionAt !== session.revisionAt))
+        ) {
+          // 另一个标签页已写入更新版本，拒绝旧快照覆盖。
+          abortTransaction(tx)
+          throw new Error('session revision conflict')
+        }
+        await sessions.put(session)
         await tx.objectStore('sessionSummaries').put(summary)
       } catch (error) {
         abortTransaction(tx)
@@ -138,7 +159,7 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
   ])
 }
 
-/** 删除会话，仅清理已无会话引用的本地原件；远端文件不删。 */
+/** 删除会话，仅清理已无会话引用的本地原件；远端文件由 store 进入后台清理队列。 */
 export const deleteSession = async (sessionId: string): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
   await Promise.all([
@@ -146,9 +167,12 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
       try {
         const summaries = tx.objectStore('sessionSummaries')
         const summary = await summaries.get(sessionId)
+        const session = await tx.objectStore('sessions').get(sessionId)
         await tx.objectStore('sessions').delete(sessionId)
         await summaries.delete(sessionId)
-        for (const id of summary?.fileIds ?? []) {
+        // 旧版本摘要可能没有 fileIds，删除时回算，避免本地原件泄漏。
+        const fileIds = summary?.fileIds ?? (session ? storedSummary(session).fileIds : [])
+        for (const id of fileIds) {
           if ((await summaries.index('fileIds').count(id)) === 0) {
             await tx.objectStore('files').delete(id)
           }

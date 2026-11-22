@@ -74,14 +74,28 @@ const makeSnippet = (text: string, keyword: string): string | null => {
  * 在全部本地会话中搜索：先匹配标题，再按会话更新时间从新到旧扫描可见分支的消息正文。
  * 只读当前展示的分支；分支里未选中的回答不会出现在结果中。
  */
-export const searchAllSessions = async (query: string): Promise<SearchResult> => {
+const YIELD_EVERY = 25
+const yieldToMain = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+export const searchAllSessions = async (
+  query: string,
+  signal?: AbortSignal
+): Promise<SearchResult> => {
   const keyword = query.trim().toLowerCase()
   const result: SearchResult = { titles: [], messages: [], truncated: false }
   if (!keyword) {
     return result
   }
   const sessions = (await db.loadAllSessions()).sort((a, b) => b.updatedAt - a.updatedAt)
+  let processed = 0
   for (const session of sessions) {
+    if (signal?.aborted) {
+      return result
+    }
+    processed += 1
+    if (processed % YIELD_EVERY === 0) {
+      await yieldToMain()
+    }
     const title = session.title || translate('untitledChat')
     if (title.toLowerCase().includes(keyword)) {
       if (result.titles.length >= TITLE_LIMIT) {
@@ -98,6 +112,13 @@ export const searchAllSessions = async (query: string): Promise<SearchResult> =>
     }
   }
   scan: for (const session of sessions) {
+    if (signal?.aborted) {
+      return result
+    }
+    processed += 1
+    if (processed % YIELD_EVERY === 0) {
+      await yieldToMain()
+    }
     const title = session.title || translate('untitledChat')
     for (const message of getVisibleMessages(session)) {
       const snippet = makeSnippet(messageText(message), keyword)

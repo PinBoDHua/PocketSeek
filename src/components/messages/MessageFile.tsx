@@ -34,7 +34,8 @@ export const MessageFile = ({
   onRetry: (() => void) | null
 }) => {
   const t = useTranslate()
-  const { image, url, link } = useFileView(file.id, file.name)
+  const view = useFileView(file.id, file.name)
+  const { image, url, link } = view
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const upload = useUploadState(file)
   const uploading = upload?.status === 'uploading'
@@ -51,14 +52,14 @@ export const MessageFile = ({
           <IconPhotoErrorFill20 />
         </span>
       ) : (
-        <img src={url} alt={file.name} onError={() => setFailedUrl(url)} />
+        <img src={url} alt={file.name} loading="lazy" onError={() => setFailedUrl(url)} />
       )
     ) : null
 
     // 上传中：本地原件已在 IndexedDB，先垫在蒙层下显示，避免只有一块灰色占位
     if (uploading) {
       return (
-        <div className={clsx(styles.image, styles.imageThumb)} title={file.name}>
+        <div ref={view.ref} className={clsx(styles.image, styles.imageThumb)} title={file.name}>
           {preview}
           <div className={styles.overlay}>
             <span className={styles.spinner} />
@@ -77,6 +78,7 @@ export const MessageFile = ({
     if (failed && !retry) {
       return (
         <div
+          ref={view.ref}
           className={clsx(styles.image, styles.imageThumb)}
           title={errorText}
           aria-label={errorText}
@@ -97,6 +99,7 @@ export const MessageFile = ({
       return (
         <Tooltip content={retryLabel}>
           <button
+            ref={view.ref}
             type="button"
             className={clsx(styles.image, styles.imageThumb, styles.retryImage)}
             aria-label={retryLabel}
@@ -114,12 +117,17 @@ export const MessageFile = ({
 
     // 正常态：链接到原件
     return link ? (
-      <a className={clsx(styles.image, styles.imageThumb)} {...link} title={file.name}>
+      <a
+        ref={view.ref}
+        className={clsx(styles.image, styles.imageThumb)}
+        {...link}
+        title={file.name}
+      >
         {preview}
       </a>
     ) : (
       // 原件还没加载出来（极短暂）
-      <div className={styles.image} />
+      <div ref={view.ref} className={styles.image} />
     )
   }
 

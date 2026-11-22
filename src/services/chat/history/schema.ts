@@ -3,6 +3,7 @@ import {
   EXPORT_FORMAT_VERSION,
   type ChatMessage,
   type FileEntry,
+  type MessageUsage,
   type Fragment,
   type SearchResult,
   type SessionFile,
@@ -197,6 +198,16 @@ const fragment: Read<Fragment | null> = (value) => {
   }
 }
 
+const usage: Read<MessageUsage> = (value) => {
+  const item = record(value)
+  return {
+    input_tokens: count(item.input_tokens),
+    cache_creation_input_tokens: count(item.cache_creation_input_tokens),
+    cache_read_input_tokens: count(item.cache_read_input_tokens),
+    output_tokens: count(item.output_tokens),
+  }
+}
+
 const message: Read<ChatMessage> = (value) => {
   const item = record(value)
   return {
@@ -217,6 +228,10 @@ const message: Read<ChatMessage> = (value) => {
     accumulated_token_usage: count(item.accumulated_token_usage),
     inserted_at: time(item.inserted_at),
     fragments: list(fragment)(item.fragments).filter((item): item is Fragment => item !== null),
+    ...(item.usage === undefined ? {} : { usage: item.usage === null ? null : usage(item.usage) }),
+    ...(item.latest_reminder === undefined
+      ? {}
+      : { latest_reminder: nullable(string)(item.latest_reminder) }),
   }
 }
 

@@ -17,6 +17,17 @@ export type ServerSentEvent = {
 
 const LINE_BREAK = /\r\n|\r|\n/g
 
+/** 防止异常服务端用超长行/事件耗尽内存。 */
+const MAX_LINE_CHARS = 1_000_000
+const MAX_EVENT_CHARS = 8_000_000
+
+export class ServerSentEventLimitError extends Error {
+  constructor() {
+    super('Server-sent event exceeds size limit')
+    this.name = 'ServerSentEventLimitError'
+  }
+}
+
 export class ServerSentEventDecoder {
   private buffer = ''
   private data = ''
@@ -35,13 +46,20 @@ export class ServerSentEventDecoder {
       if (match[0] === '\r' && LINE_BREAK.lastIndex === this.buffer.length) {
         break
       }
-      const event = this.processLine(this.buffer.slice(lineStart, match.index))
+      const line = this.buffer.slice(lineStart, match.index)
+      if (line.length > MAX_LINE_CHARS) {
+        throw new ServerSentEventLimitError()
+      }
+      const event = this.processLine(line)
       if (event) {
         events.push(event)
       }
       lineStart = LINE_BREAK.lastIndex
     }
     this.buffer = this.buffer.slice(lineStart)
+    if (this.buffer.length > MAX_LINE_CHARS) {
+      throw new ServerSentEventLimitError()
+    }
     return events
   }
 
@@ -70,6 +88,9 @@ export class ServerSentEventDecoder {
     }
     switch (field) {
       case 'data':
+        if (this.data.length + value.length + 1 > MAX_EVENT_CHARS) {
+          throw new ServerSentEventLimitError()
+        }
         this.data = this.hasData ? `${this.data}\n${value}` : value
         this.hasData = true
         break

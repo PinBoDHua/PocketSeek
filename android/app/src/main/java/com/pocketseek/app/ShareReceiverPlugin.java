@@ -29,12 +29,18 @@ import java.util.List;
 @CapacitorPlugin(name = "ShareReceiver")
 public class ShareReceiverPlugin extends Plugin {
     private static final int MAX_IMAGES = 6;
+    private static final int MAX_PENDING_IMAGES = 12;
     private static final int MAX_IMAGE_BYTES = 12 * 1024 * 1024;
     private static final long MAX_TOTAL_BYTES = 24L * 1024 * 1024;
+    private static final int MAX_TEXT_CHARS = 100_000;
+    private static final int MAX_PENDING_TEXTS = 20;
+    private static final int MAX_PENDING_TEXT_CHARS = 200_000;
+    private static final String TRUNCATED_TEXT_SUFFIX = "\n…（分享文本过长，已截断）";
 
     private static final Object LOCK = new Object();
     private static final List<String> PENDING_TEXTS = new ArrayList<>();
     private static final List<Uri> PENDING_URIS = new ArrayList<>();
+    private static int pendingTextChars = 0;
     private static int pendingSkipped = 0;
 
     private static final class ImageRead {
@@ -49,18 +55,25 @@ public class ShareReceiverPlugin extends Plugin {
         }
     }
 
-    /** 交给 JS 的载荷：文本 + 图片 base64；skipped 为放不下的图片数量 */
+    /**
+     * 交给 JS 的载荷：文本 + 一次最多一张图片的 base64；hasMore 表示还有图片待取。
+     * 每次只跨桥一张图，避免 24MB 图片同时编码成 base64 造成低端机 OOM。
+     */
     @PluginMethod
     public void getPending(PluginCall call) {
         List<String> texts;
-        List<Uri> uris;
+        Uri nextUri = null;
         int skipped;
+        boolean hasMore;
         synchronized (LOCK) {
             texts = new ArrayList<>(PENDING_TEXTS);
-            uris = new ArrayList<>(PENDING_URIS);
-            skipped = pendingSkipped;
             PENDING_TEXTS.clear();
-            PENDING_URIS.clear();
+            pendingTextChars = 0;
+            if (!PENDING_URIS.isEmpty()) {
+                nextUri = PENDING_URIS.remove(0);
+            }
+            hasMore = !PENDING_URIS.isEmpty();
+            skipped = pendingSkipped;
             pendingSkipped = 0;
         }
 
@@ -72,31 +85,30 @@ public class ShareReceiverPlugin extends Plugin {
             items.put(item);
         }
 
-        ContentResolver resolver = getActivity().getContentResolver();
-        long budget = MAX_TOTAL_BYTES;
-        for (Uri uri : uris) {
+        if (nextUri != null) {
+            ContentResolver resolver = getActivity().getContentResolver();
             ImageRead image;
             try {
-                image = readImage(resolver, uri, budget);
+                image = readImage(resolver, nextUri, MAX_TOTAL_BYTES);
             } catch (Exception error) {
                 image = null;
             }
             if (image == null) {
                 skipped++;
-                continue;
+            } else {
+                JSObject item = new JSObject();
+                item.put("type", "image");
+                item.put("name", image.name);
+                item.put("mimeType", image.mimeType);
+                item.put("data", Base64.encodeToString(image.bytes, Base64.NO_WRAP));
+                items.put(item);
             }
-            budget -= image.bytes.length;
-            JSObject item = new JSObject();
-            item.put("type", "image");
-            item.put("name", image.name);
-            item.put("mimeType", image.mimeType);
-            item.put("data", Base64.encodeToString(image.bytes, Base64.NO_WRAP));
-            items.put(item);
         }
 
         JSObject result = new JSObject();
         result.put("items", items);
         result.put("skipped", skipped);
+        result.put("hasMore", hasMore);
         call.resolve(result);
     }
 
@@ -111,24 +123,41 @@ public class ShareReceiverPlugin extends Plugin {
         }
 
         String text = extractText(intent);
+        if (text.length() > MAX_TEXT_CHARS) {
+            text = text.substring(0, MAX_TEXT_CHARS) + TRUNCATED_TEXT_SUFFIX;
+        }
         String type = intent.getType();
         List<Uri> uris =
                 type != null && type.startsWith("image/") ? extractUris(intent) : new ArrayList<>();
-        int skipped = Math.max(0, uris.size() - MAX_IMAGES);
         if (text.isEmpty() && uris.isEmpty()) {
             return false;
         }
 
+        boolean queued = false;
         synchronized (LOCK) {
             if (!text.isEmpty()) {
-                PENDING_TEXTS.add(text);
+                // 队列满或总字符超限时丢弃最旧的分享，保证最新内容可进入且内存有界。
+                while (!PENDING_TEXTS.isEmpty()
+                        && (PENDING_TEXTS.size() >= MAX_PENDING_TEXTS
+                                || pendingTextChars + text.length() > MAX_PENDING_TEXT_CHARS)) {
+                    pendingTextChars -= PENDING_TEXTS.remove(0).length();
+                }
+                if (pendingTextChars + text.length() <= MAX_PENDING_TEXT_CHARS) {
+                    PENDING_TEXTS.add(text);
+                    pendingTextChars += text.length();
+                    queued = true;
+                }
             }
-            for (int index = 0; index < Math.min(uris.size(), MAX_IMAGES); index++) {
+            int imageCapacity =
+                    Math.min(MAX_IMAGES, Math.max(0, MAX_PENDING_IMAGES - PENDING_URIS.size()));
+            int take = Math.min(uris.size(), imageCapacity);
+            for (int index = 0; index < take; index++) {
                 PENDING_URIS.add(uris.get(index));
             }
-            pendingSkipped += skipped;
+            pendingSkipped += uris.size() - take;
+            queued = queued || take > 0 || uris.size() > take;
         }
-        return true;
+        return queued;
     }
 
     private static String extractText(Intent intent) {

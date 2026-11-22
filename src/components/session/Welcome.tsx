@@ -4,7 +4,7 @@ import { BrandMark } from '../base/BrandMark.js'
 import { IconEditOutline16 } from '../base/icons.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
 import { MobileHeader } from './MobileHeader.js'
-import { setDraftText } from '../../services/chat/drafts.js'
+import { getDraft, setDraftText } from '../../services/chat/drafts.js'
 import { sendMessage } from '../../services/chat/store.js'
 import { usePrompts } from '../../services/prompts.js'
 import { ensureApiKey, openSettings } from '../settings/settingsDialogState.js'
@@ -23,9 +23,14 @@ export const Welcome = () => {
     if (!ensureApiKey()) {
       return
     }
-    setDraftText(null, text)
-    if (sendMessage(null) === 'queued') {
+    const original = getDraft(null).text
+    setDraftText(null, original.trim() ? `${original.trimEnd()}\n\n${text}` : text)
+    const result = sendMessage(null)
+    if (result === 'queued') {
       showToast({ key: 'outboxQueuedToast' })
+    } else if (result === false) {
+      // 发送条件不满足时恢复用户原有草稿，避免快捷提问吞掉输入。
+      setDraftText(null, original)
     }
   }
   return (
@@ -50,11 +55,7 @@ export const Welcome = () => {
               {prompt.title}
             </button>
           ))}
-          <button
-            type="button"
-            className={styles.manage}
-            onClick={() => openSettings('prompts')}
-          >
+          <button type="button" className={styles.manage} onClick={() => openSettings('prompts')}>
             <IconEditOutline16 />
             {t(prompts.length === 0 ? 'promptWelcomeEmpty' : 'promptWelcomeManage')}
           </button>

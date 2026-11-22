@@ -1,7 +1,7 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { resizeUploadImage } from '../../utils/resizeUploadImage.js'
 import { readMessageEvent } from './parseEvent.js'
-import { readServerSentEvents } from './sse.js'
+import { readServerSentEvents, ServerSentEventLimitError } from './sse.js'
 import type {
   ApiErrorBody,
   CreateMessageRequest,
@@ -49,12 +49,44 @@ const isErrorBody = (value: unknown): value is ApiErrorBody =>
   'error' in value &&
   typeof (value as ApiErrorBody).error?.message === 'string'
 
+/** 错误响应只读取前 64KB，避免异常服务端用巨型错误体耗尽内存。 */
+const MAX_ERROR_BODY_BYTES = 64 * 1024
+const DEFAULT_TIMEOUT_MS = 30_000
+
+const readErrorText = async (response: Response): Promise<string> => {
+  if (!response.body) {
+    return ''
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let bytes = 0
+  try {
+    while (bytes < MAX_ERROR_BODY_BYTES) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      const take = value.subarray(0, MAX_ERROR_BODY_BYTES - bytes)
+      bytes += take.byteLength
+      text += decoder.decode(take, { stream: true })
+      if (take.byteLength < value.byteLength) {
+        await reader.cancel().catch(() => {})
+        break
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return text + decoder.decode()
+}
+
 const readErrorResponse = async (
   response: Response,
   kind: 'http' | 'protocol' = 'http',
   fallback = response.statusText
 ): Promise<ApiError> => {
-  const text = await response.text().catch(() => '')
+  const text = await readErrorText(response).catch(() => '')
   let message = text || fallback
   try {
     const body: unknown = JSON.parse(text)
@@ -67,15 +99,48 @@ const readErrorResponse = async (
   return new ApiError(kind, message, response.status)
 }
 
-export const request = async (url: string, init: RequestInit): Promise<Response> => {
+/**
+ * 发起请求；timeoutMs 覆盖"到响应头"的等待时间，流式正文由调用方取消。
+ * 外部 signal 与内部超时都会中止 fetch。
+ */
+export const request = async (
+  url: string,
+  init: RequestInit,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<Response> => {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true
+          controller.abort()
+        }, timeoutMs)
+      : null
+  const external = init.signal
+  const forwardAbort = () => controller.abort(external?.reason)
+  if (external) {
+    if (external.aborted) {
+      forwardAbort()
+    } else {
+      external.addEventListener('abort', forwardAbort, { once: true })
+    }
+  }
   let response: Response
   try {
-    response = await fetch(url, init)
+    response = await fetch(url, { ...init, signal: controller.signal })
   } catch (error) {
-    if (init.signal?.aborted) {
+    if (external?.aborted) {
       throw error
     }
+    if (timedOut) {
+      throw new ApiError('network', { key: 'requestTimeout' })
+    }
     throw new ApiError('network', error instanceof Error ? error.message : String(error))
+  } finally {
+    if (timer !== null) {
+      clearTimeout(timer)
+    }
   }
   if (!response.ok) {
     throw await readErrorResponse(response)
@@ -92,11 +157,15 @@ const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string>
 
 /** 用 GET /models 校验 API Key（不产生费用） */
 export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promise<void> => {
-  await request(`${API_ORIGIN}/models`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    signal,
-  })
+  await request(
+    `${API_ORIGIN}/models`,
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal,
+    },
+    15_000
+  )
 }
 
 /**
@@ -114,12 +183,16 @@ export const uploadFile = async (
     form.append('purpose', purpose)
   }
   form.append('file', purpose === null ? await resizeUploadImage(file, signal) : file)
-  const response = await request(`${ANTHROPIC_BASE_URL}/files`, {
-    method: 'POST',
-    headers: anthropicHeaders(apiKey, true),
-    body: form,
-    signal,
-  })
+  const response = await request(
+    `${ANTHROPIC_BASE_URL}/files`,
+    {
+      method: 'POST',
+      headers: anthropicHeaders(apiKey, true),
+      body: form,
+      signal,
+    },
+    300_000
+  )
   return (await response.json()) as FileObject
 }
 
@@ -161,29 +234,36 @@ export async function* streamMessage(
   if (!response.body || !contentType.includes('text/event-stream')) {
     throw await readErrorResponse(response, 'protocol', '')
   }
-  for await (const { event: eventName, data } of readServerSentEvents(response.body, signal)) {
-    let payload: unknown
-    try {
-      payload = JSON.parse(data)
-    } catch {
-      if (eventName !== 'error') {
+  try {
+    for await (const { event: eventName, data } of readServerSentEvents(response.body, signal)) {
+      let payload: unknown
+      try {
+        payload = JSON.parse(data)
+      } catch {
+        if (eventName !== 'error') {
+          continue
+        }
+      }
+      if (isErrorBody(payload)) {
+        throw new ApiError('stream', payload.error.message)
+      }
+      if (eventName === 'error') {
+        throw new ApiError('stream', data)
+      }
+      const event = readMessageEvent(payload)
+      if (!event) {
         continue
       }
+      yield event
+      if (event.type === 'message_stop') {
+        return
+      }
     }
-    if (isErrorBody(payload)) {
-      throw new ApiError('stream', payload.error.message)
+  } catch (error) {
+    if (error instanceof ServerSentEventLimitError) {
+      throw new ApiError('protocol', { key: 'responseTooLarge' })
     }
-    if (eventName === 'error') {
-      throw new ApiError('stream', data)
-    }
-    const event = readMessageEvent(payload)
-    if (!event) {
-      continue
-    }
-    yield event
-    if (event.type === 'message_stop') {
-      return
-    }
+    throw error
   }
   // 服务端没有提供错误内容时保持为空，不推测断流原因。
   throw new ApiError('interrupted', '')

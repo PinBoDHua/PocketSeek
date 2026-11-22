@@ -14,9 +14,8 @@ type MathHtmlResult = {
 
 const noop = () => {}
 
-/** KaTeX 渲染公式；出错时保留上次成功的结果（流式中公式未写完），没有则展示原文 */
+/** KaTeX 渲染公式；出错时展示当前公式原文，不沿用上一条公式的结果 */
 const useMathHtml = (input: string, isInline: boolean): MathHtmlResult => {
-  const previousResultRef = useRef<MathHtmlResult | null>(null)
   const katexRef = useRef(ensureKatex())
   const [katex, setKatex] = useState<Katex | null>(
     katexRef.current instanceof Promise ? null : katexRef.current
@@ -37,11 +36,9 @@ const useMathHtml = (input: string, isInline: boolean): MathHtmlResult => {
       const html = katex
         .renderToString(input, { throwOnError: true, strict: false, displayMode: !isInline })
         .slice(prefix.length, -suffix.length)
-      const result = { html, renderMode: 'katex' } as const
-      previousResultRef.current = result
-      return result
+      return { html, renderMode: 'katex' } as const
     } catch {
-      return previousResultRef.current ?? { html: input, renderMode: 'fallback' }
+      return { html: input, renderMode: 'fallback' }
     }
   }, [input, isInline, katex])
 }

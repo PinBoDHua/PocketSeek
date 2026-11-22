@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getFileViewType, isImage } from '../../services/attachments.js'
 import { loadFile } from '../../services/chat/db.js'
 
@@ -19,8 +19,51 @@ const createViewUrl = (original: Blob, type: string) => {
 /** 草稿传 File，已发送的附件传 IndexedDB 原件 ID。 */
 export const useFileView = (source: File | string, name: string) => {
   const type = getFileViewType(name)
+  const image = isImage(type)
+  // 草稿 File 已在内存中；历史图片等进入视口后再读 IndexedDB。
+  const defer = image && typeof source === 'string'
+  const [visible, setVisible] = useState(!defer)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  useEffect(() => {
+    setVisible(!defer)
+  }, [defer])
+  const ref = useCallback(
+    (element: Element | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      if (!element) {
+        return
+      }
+      if (!defer || typeof IntersectionObserver === 'undefined') {
+        setVisible(true)
+        return
+      }
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            setVisible(true)
+            observer.disconnect()
+            observerRef.current = null
+          }
+        },
+        { rootMargin: '200px' }
+      )
+      observer.observe(element)
+      observerRef.current = observer
+    },
+    [defer]
+  )
+  useEffect(
+    () => () => {
+      observerRef.current?.disconnect()
+    },
+    []
+  )
   const [state, setState] = useState<{ source: File | string; type: string; url: string | null }>()
   useEffect(() => {
+    if (!visible) {
+      return
+    }
     let active = true
     const original = typeof source === 'string' ? loadFile(source) : Promise.resolve(source)
     const pending = original
@@ -39,11 +82,10 @@ export const useFileView = (source: File | string, name: string) => {
         }
       })
     }
-  }, [source, type])
+  }, [source, type, visible])
 
   const url = state?.source === source && state.type === type ? state.url : undefined
-  const image = isImage(type)
   const openInTab = type === 'application/pdf' || (image && type !== 'image/svg+xml')
   const action = openInTab ? { target: '_blank', rel: 'noreferrer' } : { download: name }
-  return { url, image, link: url ? { href: url, ...action } : undefined }
+  return { ref, url, image, link: url ? { href: url, ...action } : undefined }
 }

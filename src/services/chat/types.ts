@@ -120,6 +120,9 @@ export type Session = {
   messages: Message[]
   /** undefined 表示线性消息列表；null 表示空会话。 */
   rootMessageId?: string | null
+  /** 本地写入版本，用于多标签页防止旧快照覆盖新消息。 */
+  revision?: number
+  revisionAt?: number
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

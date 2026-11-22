@@ -11,7 +11,7 @@ import { isNativeShell } from '../native.js'
 type SharedText = { type: 'text'; text: string }
 type SharedImage = { type: 'image'; name: string; mimeType: string; data: string }
 type SharedItem = SharedText | SharedImage
-type SharePayload = { items: SharedItem[]; skipped?: number }
+type SharePayload = { items: SharedItem[]; skipped?: number; hasMore?: boolean }
 
 type ShareReceiverPlugin = {
   getPending: () => Promise<SharePayload | undefined>
@@ -44,15 +44,34 @@ const appendText = (sessionId: string | null, text: string) => {
   setDraftText(sessionId, current.trim() ? `${current.trimEnd()}\n\n${text}` : text)
 }
 
-/** Web Share Target 用 GET 参数传入；读完立即清掉查询串，刷新不会重复带入。 */
-const readShareTarget = () => {
+const SHARE_CACHE = 'pocketseek-share'
+
+/** PWA 分享目标使用 POST；Service Worker 把表单暂存到 Cache，这里读取后立即删除。 */
+const readShareTarget = async (): Promise<string> => {
   const params = new URLSearchParams(window.location.search)
   if (!params.has(SHARE_TARGET_PARAM)) {
     return ''
   }
+  let values: string[] = []
+  try {
+    const cache = await caches.open(SHARE_CACHE)
+    const cached = await cache.match('latest')
+    if (cached) {
+      const data = (await cached.json()) as { title?: unknown; text?: unknown; url?: unknown }
+      values = [data.title, data.text, data.url].filter(
+        (value): value is string => typeof value === 'string'
+      )
+      await cache.delete('latest')
+    }
+  } catch {
+    // 非安全上下文或旧浏览器没有 Cache API，退回读取查询参数。
+  }
+  if (values.every((value) => !value.trim())) {
+    values = SHARE_TARGET_KEYS.map((key) => params.get(key) ?? '')
+  }
   const parts: string[] = []
-  for (const key of SHARE_TARGET_KEYS) {
-    const value = params.get(key)?.trim()
+  for (const raw of values) {
+    const value = raw.trim()
     if (value && !parts.some((part) => part === value || part.includes(value))) {
       parts.push(value)
     }
@@ -92,11 +111,12 @@ const decodeImage = (image: SharedImage): File | null => {
   }
 }
 
-/** 把分享内容并入当前会话草稿；图片按现有附件规则过滤、校验并上传。 */
-export const applySharedPayload = (payload: SharePayload) => {
+/** 导入历史期间先暂存，替换完成后再并入草稿，避免被 clearAllDrafts 清掉。 */
+const deferredShares: SharePayload[] = []
+
+const applySharedPayloadNow = (payload: SharePayload) => {
   const state = useChatStore.getState()
-  // 导入历史期间旧会话可能被替换，分享内容落到新对话草稿里，避免丢失。
-  const sessionId = state.importingHistory ? null : state.activeId
+  const sessionId = state.activeId
   const texts = payload.items
     .filter((item): item is SharedText => item.type === 'text')
     .map((item) => item.text.trim())
@@ -142,6 +162,26 @@ export const applySharedPayload = (payload: SharePayload) => {
   }
 }
 
+export const applySharedPayload = (payload: SharePayload) => {
+  if (useChatStore.getState().importingHistory) {
+    deferredShares.push(payload)
+    if (deferredShares.length > 20) {
+      deferredShares.shift()
+    }
+    return
+  }
+  applySharedPayloadNow(payload)
+}
+
+const flushDeferredShares = () => {
+  while (deferredShares.length > 0 && !useChatStore.getState().importingHistory) {
+    const payload = deferredShares.shift()
+    if (payload) {
+      applySharedPayloadNow(payload)
+    }
+  }
+}
+
 let pulling = false
 let pullAgain = false
 
@@ -158,9 +198,14 @@ const pullNativeShare = async () => {
   try {
     do {
       pullAgain = false
-      const payload = await shareReceiver.getPending()
-      if (payload && (payload.items.length > 0 || (payload.skipped ?? 0) > 0)) {
-        applySharedPayload(payload)
+      for (let guard = 0; guard < 50; guard += 1) {
+        const payload = await shareReceiver.getPending()
+        if (payload && (payload.items.length > 0 || (payload.skipped ?? 0) > 0)) {
+          applySharedPayload(payload)
+        }
+        if (!payload?.hasMore) {
+          break
+        }
       }
     } while (pullAgain)
   } catch {
@@ -176,18 +221,27 @@ let targetConsumed = false
 export const initShareInbox = () => {
   if (!targetConsumed) {
     targetConsumed = true
-    const text = readShareTarget()
-    if (text) {
-      applySharedPayload({ items: [{ type: 'text', text }] })
-    }
+    void readShareTarget().then((text) => {
+      if (text) {
+        applySharedPayload({ items: [{ type: 'text', text }] })
+      }
+    })
   }
+  const unsubscribe = useChatStore.subscribe((state, previous) => {
+    if (previous.importingHistory && !state.importingHistory) {
+      flushDeferredShares()
+    }
+  })
   if (!isNativeShell()) {
-    return () => {}
+    return unsubscribe
   }
   const onNativeShare = () => {
     void pullNativeShare()
   }
   window.addEventListener(NATIVE_SHARE_EVENT, onNativeShare)
   void pullNativeShare()
-  return () => window.removeEventListener(NATIVE_SHARE_EVENT, onNativeShare)
+  return () => {
+    unsubscribe()
+    window.removeEventListener(NATIVE_SHARE_EVENT, onNativeShare)
+  }
 }

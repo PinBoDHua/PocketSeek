@@ -44,6 +44,11 @@ import {
   sortedOutboxEntries,
 } from './outbox.js'
 import { removePins } from './pins.js'
+import {
+  collectServerIds,
+  enqueueRemoteFileDeletions,
+  flushRemoteFileDeletions,
+} from './remoteFiles.js'
 import { createLatestReminder } from './latestReminder.js'
 import {
   applyEvent,
@@ -190,13 +195,18 @@ const updateSession = (id: string, update: (session: Session) => Session) =>
     if (session === previous) {
       return state
     }
+    const next: Session = {
+      ...session,
+      revision: (previous.revision ?? 0) + 1,
+      revisionAt: Date.now(),
+    }
     return {
-      sessionCache: { ...state.sessionCache, [id]: session },
-      sessions: sameSummary(previous, session)
+      sessionCache: { ...state.sessionCache, [id]: next },
+      sessions: sameSummary(previous, next)
         ? state.sessions
         : sortSessions(
             state.sessions.map((summary) =>
-              summary.id === id ? toSessionSummary(session) : summary
+              summary.id === id ? toSessionSummary(next) : summary
             )
           ),
     }
@@ -475,6 +485,7 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     initTask = undefined
     sessionLoads.clear()
     await waitForIdle()
+    const oldServerIds = (await db.loadAllSessions()).flatMap(collectServerIds)
     await db.clearStaging()
     let summaries: SessionSummary[]
     try {
@@ -489,6 +500,10 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     pendingFiles.clear()
     clearAllDrafts()
     clearOutbox()
+    if (oldServerIds.length > 0) {
+      enqueueRemoteFileDeletions(oldServerIds)
+      void flushRemoteFileDeletions()
+    }
     set({
       ready: true,
       initError: false,
@@ -549,10 +564,7 @@ export const renameSession = (id: string, title: string) => {
   }
 }
 
-/**
- * 删除会话；本地原件仅在没有其他会话引用时清理。远端文件不删：导入、编辑、重新生成都会复用同一个附件，
- * 同一服务端文件可能被多个会话引用，不维护引用计数。
- */
+/** 删除会话；本地原件仅在没有其他会话引用时清理，远端文件进入后台清理队列。 */
 export const removeSession = (id: string): Promise<boolean> => {
   const task = removeSessionData(id).finally(() => deletionTasks.delete(task))
   deletionTasks.add(task)
@@ -581,6 +593,7 @@ const removeSessionData = async (id: string): Promise<boolean> => {
     if (epoch !== historyEpoch) {
       return false
     }
+    const removed = getSession(id) ?? (await db.loadSession(id))
     await db.deleteSession(id)
     if (epoch !== historyEpoch) {
       return true
@@ -605,6 +618,20 @@ const removeSessionData = async (id: string): Promise<boolean> => {
       ),
       activeId: state.activeId === id ? null : state.activeId,
     }))
+    if (removed) {
+      const candidates = collectServerIds(removed)
+      if (candidates.length > 0) {
+        // 同一 file_id 可能被导入归档复用；只清理已无会话引用的附件。
+        void db
+          .loadAllSessions()
+          .then((sessions) => {
+            const inUse = new Set(sessions.flatMap(collectServerIds))
+            enqueueRemoteFileDeletions(candidates.filter((fileId) => !inUse.has(fileId)))
+            return flushRemoteFileDeletions()
+          })
+          .catch(db.reportStorageError('queue remote file deletions'))
+      }
+    }
     return true
   } catch (error) {
     db.reportStorageError('delete session')(error)
@@ -657,6 +684,8 @@ export const sendMessage = (targetSessionId: string | null): 'sent' | 'queued' |
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      revision: 0,
+      revisionAt: now,
     }
     sessionId = session.id
     touchSession(session.id)
@@ -1093,10 +1122,17 @@ const streamReply = async (
   let reply = initial
   let requeued = false
   let frame = 0
+  let lastPersistAt = Date.now()
   const flush = () => {
     cancelAnimationFrame(frame)
     frame = 0
     updateReply(sessionId, reply)
+    // 流式期间每 2 秒落盘一次，异常退出最多丢一小段增量。
+    const now = Date.now()
+    if (now - lastPersistAt >= 2000) {
+      lastPersistAt = now
+      persist(sessionId)
+    }
   }
   streamFlushes.set(sessionId, flush)
 
@@ -1243,7 +1279,7 @@ const streamReply = async (
 let outboxFlushing = false
 
 /** 联网后按时间顺序补发离线消息；遇到新的网络失败就停下，等下一次 online 或手动重试。 */
-export const flushOutbox = async () => {
+const flushOutboxUnlocked = async () => {
   if (outboxFlushing || isOffline() || get().importingHistory || !get().ready) {
     return
   }
@@ -1299,6 +1335,23 @@ export const flushOutbox = async () => {
   }
 }
 
+/** 多标签页同时在线时只让一个页面补发，避免同一条离线消息被重复计费。 */
+export const flushOutbox = async () => {
+  if (outboxFlushing || isOffline() || get().importingHistory || !get().ready) {
+    return
+  }
+  const locks = (navigator as Navigator & { locks?: LockManager }).locks
+  if (!locks) {
+    await flushOutboxUnlocked()
+    return
+  }
+  await locks.request('pocketseek-outbox', { ifAvailable: true }, async (lock) => {
+    if (lock) {
+      await flushOutboxUnlocked()
+    }
+  })
+}
+
 let outboxBound = false
 
 /** 启动时补发遗留队列，并在恢复联网时自动继续；初始离线则保持等待。 */
@@ -1308,10 +1361,14 @@ export const bindOutbox = () => {
   }
   outboxBound = true
   const onOnline = () => {
+    void flushRemoteFileDeletions()
     void flushOutbox()
   }
   window.addEventListener('online', onOnline)
-  void initChat().then(() => flushOutbox())
+  void initChat().then(() => {
+    void flushRemoteFileDeletions()
+    return flushOutbox()
+  })
   return () => {
     outboxBound = false
     window.removeEventListener('online', onOnline)
@@ -1325,6 +1382,14 @@ export const retryQueuedMessage = () => {
   }
   void flushOutbox()
   return true
+}
+
+const restoreCanceledText = (draftSessionId: string | null, text: string) => {
+  if (!text) {
+    return
+  }
+  const current = getDraft(draftSessionId).text
+  setDraftText(draftSessionId, current.trim() ? `${current.trimEnd()}\n\n${text}` : text)
 }
 
 const markReplyCanceled = (sessionId: string, replyId: string) => {
@@ -1369,7 +1434,7 @@ export const cancelQueuedMessage = async (sessionId: string, replyId: string): P
   if (next.messages.length === 0) {
     // 先把附件读回草稿，再删会话；删除时会一并清掉仅被该会话引用的原件。
     await restoreDraftAttachments(null, files)
-    setDraftText(null, text)
+    restoreCanceledText(null, text)
     if (!(await removeSession(sessionId))) {
       markReplyCanceled(sessionId, replyId)
     }
@@ -1377,7 +1442,7 @@ export const cancelQueuedMessage = async (sessionId: string, replyId: string): P
   }
   updateSession(sessionId, () => next)
   persist(sessionId)
-  setDraftText(sessionId, text)
+  restoreCanceledText(sessionId, text)
   await restoreDraftAttachments(sessionId, files)
   return true
 }

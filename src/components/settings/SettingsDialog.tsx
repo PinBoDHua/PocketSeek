@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useRef, useState, type ReactNode } from 'react'
+import { memo, useRef, useState, type ReactNode } from 'react'
 import {
   IconChartOutline16,
   IconDarkOutline16,
@@ -55,10 +55,10 @@ import styles from './Settings.module.css'
  * 与「关于」（版本、安装到桌面、非官方说明）。
  * 桌面端为居中弹窗、左侧导航；移动端为底部弹层、导航横排在内容上方
  */
-export const SettingsDialog = () => {
+export const SettingsDialog = memo(function SettingsDialog() {
   const open = useSettingsDialog((state) => state.open)
   return open ? <SettingsContent /> : null
-}
+})
 
 const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
   {

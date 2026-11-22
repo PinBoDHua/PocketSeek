@@ -128,10 +128,11 @@ export const SessionItem = memo(function SessionItem({
               },
             ]}
           >
-            {({ toggle }) => (
+            {({ open, toggle }) => (
               <IconButton
                 icon={<IconEllipsisOutline16 />}
                 aria-label={t('more')}
+                aria-expanded={open}
                 onClick={toggle}
               />
             )}

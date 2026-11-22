@@ -72,12 +72,13 @@ export const SessionActionsMenu = ({
   ]
   return (
     <Menu options={options} align={align}>
-      {({ toggle }) => (
+      {({ open, toggle }) => (
         <IconButton
           size={size}
           icon={<IconEllipsisOutline16 />}
           tooltip={t('sessionActions')}
           tooltipPlacement="bottom"
+          aria-expanded={open}
           onClick={toggle}
         />
       )}

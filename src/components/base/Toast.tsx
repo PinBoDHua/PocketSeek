@@ -1,10 +1,11 @@
 import clsx from 'clsx'
+import { memo } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { IconToastError16 } from './icons.js'
 import { useToast } from './toastState.js'
 import styles from './Toast.module.css'
 
-export const Toast = () => {
+export const Toast = memo(function Toast() {
   const t = useTranslate()
   const { id, message } = useToast()
   if (!message) {
@@ -35,4 +36,4 @@ export const Toast = () => {
       </span>
     </div>
   )
-}
+})

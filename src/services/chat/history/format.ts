@@ -48,6 +48,14 @@ export type ChatMessageStatus =
   | 'CONTEXT_LENGTH_EXCEEDED'
   | 'TIMEOUT'
 
+/** PocketSeek 扩展：完整用量；官方归档可能缺省该字段。 */
+export type MessageUsage = {
+  input_tokens: number
+  cache_creation_input_tokens: number
+  cache_read_input_tokens: number
+  output_tokens: number
+}
+
 export type ChatMessage = {
   /** 会话内自增 */
   id: number
@@ -62,6 +70,10 @@ export type ChatMessage = {
   inserted_at: Iso8601Utc
   /** 按发生顺序排列 */
   fragments: Fragment[]
+  /** PocketSeek 扩展：回答的完整用量，导入后恢复统计。 */
+  usage?: MessageUsage | null
+  /** PocketSeek 扩展：生成时的 latestReminder 快照。 */
+  latest_reminder?: string | null
 }
 
 /** 用户的提问 */

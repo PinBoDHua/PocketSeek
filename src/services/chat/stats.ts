@@ -95,7 +95,12 @@ export const loadUsageStats = async (): Promise<UsageStats> => {
     days: [],
   }
 
+  let processed = 0
   for (const session of sessions) {
+    processed += 1
+    if (processed % 25 === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    }
     for (const message of session.messages) {
       if (message.role !== 'assistant' || !message.usage) {
         continue

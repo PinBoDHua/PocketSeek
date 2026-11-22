@@ -12,9 +12,9 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionCode 10` / `versionName 0.6.1`（改 `android/app/build.gradle`）
-- 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**，密码默认 `pocketseek2026`，可用
-  `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD` 覆盖）
+- 版本：`versionCode 11` / `versionName 0.6.2`（改 `android/app/build.gradle`）
+- 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**）。构建 release 前必须设置
+  `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD`，构建脚本不再提供默认口令
 
 ## 工具链（本机已装好，可复现）
 
@@ -44,7 +44,9 @@ npx cap sync android
 cd android
 export JAVA_HOME="D:/DeepSeekApp/.tools/jdk21"
 export PATH="$JAVA_HOME/bin:$PATH"
-./gradlew assembleRelease      # 或 assembleDebug
+export POCKETSEEK_KEYSTORE_PASSWORD="<keystore 口令>"
+export POCKETSEEK_KEY_PASSWORD="<key 口令>"
+./gradlew assembleRelease      # 或 assembleDebug（Debug 不需要口令）
 ```
 
 `android/local.properties` 指向自建 SDK：

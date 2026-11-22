@@ -7,8 +7,8 @@ android {
         applicationId "com.pocketseek.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "0.6.1"
+        versionCode 11
+        versionName "0.6.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,11 +18,11 @@ android {
     }
     signingConfigs {
         release {
-            // 自签 keystore（仅本机保存，已 gitignore）；可用环境变量覆盖密码
+            // 自签 keystore（仅本机保存，已 gitignore）；口令必须由环境变量提供，不设默认值。
             storeFile file('pocketseek-release.jks')
-            storePassword System.getenv('POCKETSEEK_KEYSTORE_PASSWORD') ?: 'pocketseek2026'
+            storePassword System.getenv('POCKETSEEK_KEYSTORE_PASSWORD')
             keyAlias 'pocketseek'
-            keyPassword System.getenv('POCKETSEEK_KEY_PASSWORD') ?: 'pocketseek2026'
+            keyPassword System.getenv('POCKETSEEK_KEY_PASSWORD')
         }
     }
     buildTypes {

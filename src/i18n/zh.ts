@@ -64,6 +64,8 @@ export const zh = {
   toolFindIntro: '查找关键词',
   toolFindFailTooltip: '未查找到相关内容',
   readingLink: '正在阅读',
+  requestTimeout: '请求超时，请检查网络后重试',
+  responseTooLarge: '服务端响应过大，已中止',
   commonNetworkErrorToast: '网络异常，请检查你的网络状况',
   replyInvalidApiKey: 'API Key 无效或已被删除，请更换后重试',
   replyInsufficientBalance: '账户余额不足，请充值后重试',

@@ -221,6 +221,8 @@ const toAssistant = (message: ChatMessage): AssistantMessage => {
     search: message.search_enabled,
     prefix: false,
     status: replyStatus[message.status],
+    ...(message.usage ? { usage: message.usage } : {}),
+    ...(message.latest_reminder ? { latestReminder: message.latest_reminder } : {}),
     // 拒绝回复丢弃模型正文和思考，保留模板提示与工具步骤。
     ...(refused ? { stopReason: 'refusal' as const } : {}),
     blocks: refused

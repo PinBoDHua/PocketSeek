@@ -41,6 +41,7 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
           <div className={styles.apiKeyInput}>
             <input
               type="password"
+              aria-label={t('apiKeyStart')}
               placeholder={t('apiKeyPlaceholder')}
               autoComplete="off"
               spellCheck={false}

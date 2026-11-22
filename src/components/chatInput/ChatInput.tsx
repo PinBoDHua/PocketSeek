@@ -311,7 +311,28 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             // 首次点击时手动聚焦，避免 Safari 把整个页面滚到输入框位置。
             if (isMobile && event.button === 0 && document.activeElement !== event.currentTarget) {
               event.preventDefault()
-              event.currentTarget.focus({ preventScroll: true })
+              const textarea = event.currentTarget
+              const doc = document as Document & {
+                caretPositionFromPoint?: (
+                  x: number,
+                  y: number
+                ) => { offsetNode: Node; offset: number } | null
+                caretRangeFromPoint?: (x: number, y: number) => Range | null
+              }
+              let offset: number | null = null
+              const position = doc.caretPositionFromPoint?.(event.clientX, event.clientY)
+              if (position?.offsetNode === textarea) {
+                offset = position.offset
+              } else {
+                const range = doc.caretRangeFromPoint?.(event.clientX, event.clientY)
+                if (range?.startContainer === textarea) {
+                  offset = range.startOffset
+                }
+              }
+              textarea.focus({ preventScroll: true })
+              if (offset !== null) {
+                textarea.setSelectionRange(offset, offset)
+              }
             }
           }}
           onKeyDown={(event) => {
@@ -361,6 +382,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 className={clsx(styles.toggle, (open || effort !== 'none') && styles.selected)}
                 aria-label={t('effortTooltip')}
                 aria-haspopup="menu"
+                aria-expanded={open}
                 onClick={toggle}
               >
                 <IconThinkOutline14 />

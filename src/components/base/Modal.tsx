@@ -32,19 +32,65 @@ export const Modal = ({
   const t = useTranslate()
   const titleId = useId()
   const onCloseRef = useRef(onClose)
+  const contentRef = useRef<HTMLDivElement>(null)
   onCloseRef.current = onClose
   useEffect(() => {
     const token = {}
     openModals.push(token)
+    const root = document.getElementById('root')
+    if (openModals.length === 1) {
+      root?.setAttribute('inert', '')
+    }
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    contentRef.current?.focus()
+    const focusables = () =>
+      Array.from(
+        contentRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((element) => element.getClientRects().length > 0)
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && openModals.at(-1) === token) {
+      if (openModals.at(-1) !== token) {
+        return
+      }
+      if (event.key === 'Escape') {
         onCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab') {
+        return
+      }
+      const items = focusables()
+      if (items.length === 0) {
+        event.preventDefault()
+        contentRef.current?.focus()
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      const inside = active instanceof Node && contentRef.current?.contains(active)
+      if (event.shiftKey) {
+        if (active === first || active === contentRef.current || !inside) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (active === last || !inside) {
+        event.preventDefault()
+        first.focus()
       }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       openModals.splice(openModals.indexOf(token), 1)
       document.removeEventListener('keydown', onKeyDown)
+      if (openModals.length === 0) {
+        root?.removeAttribute('inert')
+      }
+      if (previousFocus?.isConnected) {
+        previousFocus.focus()
+      }
     }
   }, [])
 
@@ -54,10 +100,12 @@ export const Modal = ({
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
+        ref={contentRef}
         className={clsx(styles.content, className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
       >
         <div className={styles.header}>
           <div id={titleId} className={styles.title}>

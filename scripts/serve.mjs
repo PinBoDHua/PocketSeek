@@ -4,7 +4,7 @@
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 import { networkInterfaces } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
@@ -28,32 +28,46 @@ const TYPES = {
 }
 
 const server = createServer(async (request, response) => {
-  const url = new URL(request.url ?? '/', 'http://localhost')
-  let pathname = decodeURIComponent(url.pathname)
+  let pathname
+  try {
+    pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname)
+  } catch {
+    response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+    response.end('Bad request')
+    return
+  }
   if (pathname.endsWith('/')) {
     pathname += 'index.html'
   }
   const filePath = normalize(join(root, pathname))
+  const relativePath = relative(root, filePath)
   try {
-    if (!filePath.startsWith(root)) {
+    if (relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath) || relativePath === '..') {
       throw new Error('outside root')
     }
     const data = await readFile(filePath)
     response.writeHead(200, {
       'Content-Type': TYPES[extname(filePath)] ?? 'application/octet-stream',
-      // 静态资源文件名带 contenthash，可长缓存；index/sw 走协商
-      'Cache-Control': filePath.includes('static') ? 'public, max-age=31536000' : 'no-cache',
+      // 只有带 contenthash 的 /static/ 资源可长缓存；index/sw 走协商
+      'Cache-Control': pathname.startsWith('/static/')
+        ? 'public, max-age=31536000'
+        : 'no-cache',
     })
     response.end(data)
   } catch {
-    try {
-      const html = await readFile(join(root, 'index.html'))
-      response.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-cache' })
-      response.end(html)
-    } catch {
-      response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
-      response.end('Not found. 请先运行 pnpm build 生成 dist/。')
+    const acceptsHtml = (request.headers.accept ?? '').includes('text/html')
+    if (request.method === 'GET' && acceptsHtml && extname(pathname) === '') {
+      try {
+        const html = await readFile(join(root, 'index.html'))
+        response.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-cache' })
+        response.end(html)
+        return
+      } catch {
+        // 回退失败按 404 处理。
+      }
     }
+    response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+    response.end('Not found. 请先运行 pnpm build 生成 dist/。')
   }
 })
 

@@ -51,9 +51,7 @@ export const MessageList = ({
   const t = useTranslate()
   const isMobile = useIsMobile()
   // 有离线待发送消息时按繁忙处理：暂不允许编辑、重答或切换版本，避免队列与分支错位。
-  const queued = useOutbox((state) =>
-    state.entries.some((entry) => entry.sessionId === session.id)
-  )
+  const queued = useOutbox((state) => state.entries.some((entry) => entry.sessionId === session.id))
   const busy = streaming || queued
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -69,16 +67,14 @@ export const MessageList = ({
   // 已处理的跳转序号：切换会话再回来时不重复滚动到旧目标
   const consumedJump = useRef(0)
   const messages = getVisibleMessages(session)
-  const [previousVersions, setPreviousVersions] = useState(() =>
-    buildMessageVersions(session, new Map())
-  )
+  const previousVersionsRef = useRef(buildMessageVersions(session, new Map()))
   const versions = useMemo(
-    () => buildMessageVersions(session, previousVersions),
-    [session, previousVersions]
+    () => buildMessageVersions(session, previousVersionsRef.current),
+    [session]
   )
-  if (versions !== previousVersions) {
-    setPreviousVersions(versions)
-  }
+  useEffect(() => {
+    previousVersionsRef.current = versions
+  }, [versions])
   const lastMessageId = messages.at(-1)?.id
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current

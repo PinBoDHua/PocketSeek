@@ -203,7 +203,7 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
 export const useDismiss = (
   open: boolean,
   refs: RefObject<HTMLElement | null>[],
-  onDismiss: () => void,
+  onDismiss: (reason: 'pointer' | 'escape') => void,
   { captureEscape = false }: { captureEscape?: boolean } = {}
 ) => {
   const onDismissRef = useRef(onDismiss)
@@ -219,7 +219,7 @@ export const useDismiss = (
       const target = event.target as Node
       const inside = refsRef.current.some((ref) => ref.current?.contains(target))
       if (!inside) {
-        onDismissRef.current()
+        onDismissRef.current('pointer')
       }
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -229,7 +229,7 @@ export const useDismiss = (
       if (captureEscape) {
         event.stopPropagation()
       }
-      onDismissRef.current()
+      onDismissRef.current('escape')
     }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown, captureEscape)

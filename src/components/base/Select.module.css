@@ -78,6 +78,10 @@
 }
 
 .option {
+  &:focus-visible {
+    outline: 2px solid var(--dsw-alias-brand-primary);
+    outline-offset: -2px;
+  }
   box-sizing: border-box;
   display: flex;
   align-items: center;
