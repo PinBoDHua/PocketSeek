@@ -159,8 +159,14 @@ export const exportSessionMarkdown = async (session: Session): Promise<ExportOut
         import('@capacitor/filesystem'),
         import('@capacitor/share'),
       ])
+      // 写入缓存的 share/ 专用子目录：FileProvider 只暴露这一个目录
+      await Filesystem.mkdir({
+        path: 'share',
+        directory: Directory.Cache,
+        recursive: true,
+      })
       const file = await Filesystem.writeFile({
-        path: sessionMarkdownFileName(session),
+        path: `share/${sessionMarkdownFileName(session)}`,
         data: text,
         directory: Directory.Cache,
         encoding: Encoding.UTF8,

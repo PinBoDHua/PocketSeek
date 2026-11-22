@@ -15,7 +15,8 @@ export const UsageFootnote = ({ message }: { message: AssistantMessage }) => {
   if (!showUsage || !usage) {
     return null
   }
-  const cost = estimateCost(message.model, usage)
+  // 与用量统计一致按请求发生时间计价，避免跨峰谷时段两处金额不一致
+  const cost = estimateCost(message.model, usage, new Date(message.createdAt))
   return (
     <div className={styles.footnote}>
       <span className={styles.label}>{t('usageLabel')}</span>

@@ -12,7 +12,7 @@
 
 - 包名：`com.pocketseek.app`
 - minSdk 24（Android 7.0+）/ targetSdk 36 / compileSdk 36
-- 版本：`versionCode 12` / `versionName 0.6.3`（改 `android/app/build.gradle`）
+- 版本：`versionCode 13` / `versionName 0.7.0`（改 `android/app/build.gradle`）
 - 签名：自签 keystore `android/app/pocketseek-release.jks`（**不入库**）。构建 release 前必须设置
   `POCKETSEEK_KEYSTORE_PASSWORD` / `POCKETSEEK_KEY_PASSWORD`，构建脚本不再提供默认口令
 - **0.6.3 签名更换**：旧 keystore 口令丢失且无法恢复，0.6.3 使用新生成的密钥；旧文件备份在
@@ -67,7 +67,8 @@ sdk.dir=D:/DeepSeekApp/.android-sdk
 ## 已做的镜像适配
 
 - `android/gradle/wrapper/gradle-wrapper.properties`：`distributionUrl` 改到腾讯云 gradle 镜像
-  （官方 `services.gradle.org` 本机不可达）。
+  （官方 `services.gradle.org` 本机不可达）；`distributionSha256Sum` 锁定官方校验和
+  （已验证镜像 zip 与官方一致），防止镜像内容被篡改。
 - `android/build.gradle`：`repositories` 优先阿里云 `google` / `public` / `gradle-plugin` 镜像，
   官方仓库兜底。
 - SDK 组件直接下载 zip 手工组装（跳过 `sdkmanager`，因此无需接受许可协议交互）：
@@ -83,8 +84,13 @@ sdk.dir=D:/DeepSeekApp/.android-sdk
   —— WebView 里是安全上下文，localStorage / 摄像头 / 录音 / 文件选择器行为与浏览器一致。
 - 原生壳内不注册 Service Worker（`src/pwa.ts` 里检测 `window.Capacitor`），避免缓存导致升级后加载旧资源。
 - Manifest 额外声明 `RECORD_AUDIO` / `MODIFY_AUDIO_SETTINGS`，供语音输入使用。
-- `@capacitor/filesystem` + `@capacitor/share`（0.2.0 新增）：会话 Markdown 导出写入缓存文件后调起系统分享面板；
-  WebView 不支持浏览器式 blob 下载与 Web Share，因此原生壳内必须走这两个插件。无额外运行时权限。
+- `@capacitor/filesystem` + `@capacitor/share`（0.2.0 新增）：会话 Markdown 导出写入缓存的 `share/`
+  子目录后调起系统分享面板；WebView 不支持浏览器式 blob 下载与 Web Share，因此原生壳内必须走这两个插件。
+  FileProvider 只暴露该专用子目录（`file_paths.xml`），不暴露整个缓存/外部存储根。无额外运行时权限。
+- `@capacitor/haptics`（0.7.0 新增）：发送成功、切换模型/思考档位、停止生成时轻震动；
+  设置 → 通用 → 触感反馈可关（默认开），仅原生壳生效。插件自带 `VIBRATE` 权限，无需手动声明。
+- Release 开启 R8（`minifyEnabled true` + `shrinkResources true`，0.7.0）：Capacitor 的 consumer
+  混淆规则保留插件反射所需类；自定义插件继承 `Plugin` 且带 `@CapacitorPlugin` 注解，自动被保留。
 - 图标与启动图由 `design/make_android_assets.py` 从「口袋 + 星芒」矢量母版生成；
   `ic_launcher_foreground.png` 同时作为自适应图标前景与 Android 13 单色主题图标的 alpha 蒙版。
 - 窗口底色：`android/app/src/main/java/com/pocketseek/app/ThemeBackgroundPlugin.java` 由 `src/native.ts` 调用，

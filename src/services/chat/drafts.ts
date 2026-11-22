@@ -4,6 +4,7 @@ import { createId } from '../../utils/id.js'
 import {
   cancelUpload,
   isImage,
+  pruneDoneUploadTasks,
   resolveMimeType,
   seedUploadTask,
   uploadAttachment,
@@ -113,6 +114,17 @@ const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) 
 export const setDraftText = (sessionId: string | null, text: string) =>
   updateDraft(sessionId, (draft) => ({ ...draft, text }))
 
+/** 草稿不再引用的已完成上传任务及时释放，避免长期使用无限累积 */
+const pruneDoneTasks = () => {
+  const keep = new Set<string>()
+  for (const draft of useDrafts.getState().drafts.values()) {
+    for (const attachment of draft.attachments) {
+      keep.add(attachment.id)
+    }
+  }
+  pruneDoneUploadTasks(keep)
+}
+
 const upload = (attachment: DraftAttachment, apiKey: string) => {
   // 上传任务负责记录错误，输入框的附件卡片展示失败及重试入口。
   void uploadAttachment(
@@ -197,17 +209,20 @@ export const removeDraftAttachment = (sessionId: string | null, attachmentId: st
     ...draft,
     attachments: draft.attachments.filter((item) => item.id !== attachmentId),
   }))
+  pruneDoneTasks()
 }
 
-/** 发送成功后原件与 serverId 已交给会话，保留上传完成态。 */
+/** 发送成功后原件与 serverId 已交给会话，释放不再被草稿引用的完成任务。 */
 export const clearSentDraft = (sessionId: string | null) => {
   updateDraft(sessionId, () => EMPTY_DRAFT)
+  pruneDoneTasks()
 }
 
 /** 删除会话或替换历史成功后，释放尚未发送的草稿及上传任务。 */
 export const clearDraft = (sessionId: string | null) => {
   getDraft(sessionId).attachments.forEach((attachment) => cancelUpload(attachment.id))
   updateDraft(sessionId, () => EMPTY_DRAFT)
+  pruneDoneTasks()
 }
 
 /**
@@ -240,18 +255,24 @@ export const restoreDraftAttachments = async (
   if (restored.length === 0) {
     return 0
   }
-  updateDraft(sessionId, (draft) => ({
-    ...draft,
-    attachments: [...draft.attachments, ...restored],
-  }))
+  // 读取原件期间草稿可能已变化（再次取消、手动添加、发送），合并时按最新状态去重
+  let added: DraftAttachment[] = []
+  updateDraft(sessionId, (draft) => {
+    const current = new Set(draft.attachments.map((attachment) => attachment.id))
+    added = restored.filter((attachment) => !current.has(attachment.id))
+    return { ...draft, attachments: [...draft.attachments, ...added] }
+  })
+  if (added.length === 0) {
+    return 0
+  }
   const serverIds = new Map(files.map((file) => [file.id, file.serverId]))
-  for (const attachment of restored) {
+  for (const attachment of added) {
     const serverId = serverIds.get(attachment.id)
     if (serverId) {
       seedUploadTask(attachment.id, serverId)
     }
   }
-  return restored.length
+  return added.length
 }
 
 export const clearAllDrafts = () => {
@@ -271,4 +292,5 @@ export const clearAllDrafts = () => {
   } catch {
     // 存储不可用时只清理内存
   }
+  pruneDoneUploadTasks(new Set())
 }

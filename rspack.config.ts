@@ -132,6 +132,19 @@ export const createConfig = ({
       }),
     ],
     performance: { hints: false },
+    optimization: {
+      splitChunks: {
+        cacheGroups: {
+          // react 运行时单独成块：应用代码迭代时浏览器/WebView 缓存不失效
+          react: {
+            test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+            name: 'react',
+            chunks: 'all',
+            priority: 10,
+          },
+        },
+      },
+    },
     devServer: { port: 8090, ...devServer },
   }
 }

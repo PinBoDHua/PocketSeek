@@ -10,6 +10,7 @@ import { Menu, type MenuOption } from '../base/Menu.js'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import { newChat } from '../../services/chat/store.js'
 import { setModel, useSettings } from '../../services/settings.js'
+import { hapticSelection } from '../../services/haptics.js'
 import type { ChatModel } from '../../services/api/types.js'
 import type { Session } from '../../services/chat/types.js'
 import { IconButton } from '../base/IconButton.js'
@@ -32,7 +33,10 @@ export const MobileHeader = ({ title, session }: { title?: string; session?: Ses
     key: value,
     label: t(MODEL_LABELS[value]),
     icon: value === model ? <IconCheckOutline16 /> : <span className={styles.menuSpacer} />,
-    onSelect: () => setModel(value),
+    onSelect: () => {
+      setModel(value)
+      hapticSelection()
+    },
   }))
   return (
     <div className={styles.header}>

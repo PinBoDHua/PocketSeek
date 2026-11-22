@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { Source } from '../../services/chat/view.js'
+import { isWebUrl } from '../../utils/url.js'
 import { HoverCard, type HoverCardTrigger } from './HoverCard.js'
 import { SourceCard } from './SourceCard.js'
 
@@ -8,7 +9,11 @@ import { SourceCard } from './SourceCard.js'
  * 角标使用带 link 角色的 span，可嵌入链接文字。样式由 .ds-markdown-cite 提供。
  */
 export const CitationLink = ({ source }: { source: Source }) => {
-  const openSource = () => window.open(source.url, '_blank', 'noopener,noreferrer')
+  const openSource = () => {
+    if (isWebUrl(source.url)) {
+      window.open(source.url, '_blank', 'noopener,noreferrer')
+    }
+  }
   const open = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault()
     event.stopPropagation()

@@ -121,7 +121,9 @@ class SourceRegistry {
     }
     const siteName = metadata?.site_name?.trim() || getSiteName(url)
     const snippet = metadata?.snippet?.trim() || null
-    const siteIcon = metadata?.site_icon?.trim() || null
+    const rawIcon = metadata?.site_icon?.trim() || null
+    // 图标只接受 http/https，避免任意协议远程图片（跟踪像素等）
+    const siteIcon = rawIcon && isWebUrl(rawIcon) ? rawIcon : null
     const existing = this.byUrl.get(url)
     if (existing) {
       // 同一网页可能先被打开，或先返回不完整元数据；后续结果补齐，不覆盖已有正文信息。

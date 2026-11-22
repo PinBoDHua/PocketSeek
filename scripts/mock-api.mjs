@@ -154,8 +154,19 @@ const server = createServer((request, response) => {
     return
   }
   if (request.method === 'POST' && url.pathname === '/anthropic/v1/messages') {
-    request.resume()
+    let raw = ''
+    request.on('data', (chunk) => {
+      raw += chunk
+    })
     request.on('end', () => {
+      // 联调时核对请求构造：system 长度与尾部（自定义提示词追加在身份说明之后）
+      try {
+        const body = JSON.parse(raw)
+        const system = String(body.system ?? '')
+        console.log(`[mock] system len=${system.length} tail=${JSON.stringify(system.slice(-40))}`)
+      } catch {
+        // 非 JSON 请求体忽略
+      }
       void stream(response).catch(() => {
         if (!response.writableEnded) {
           response.end()

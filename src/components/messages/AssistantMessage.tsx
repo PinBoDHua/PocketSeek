@@ -37,6 +37,39 @@ import styles from './AssistantMessage.module.css'
 
 const TOP_UP_URL = 'https://platform.deepseek.com/top_up'
 
+/** 只有待发送消息才订阅网络状态，避免每条历史消息都注册 online/offline 监听 */
+const QueuedBanner = ({ onRetry, onCancel }: { onRetry: () => void; onCancel: () => void }) => {
+  const t = useTranslate()
+  const online = useOnlineStatus()
+  return (
+    <div className={styles.queued} role="status">
+      <span className={styles.queuedIcon}>
+        <IconCloudOffOutline16 />
+      </span>
+      <span className={styles.queuedText}>
+        {t(online ? 'outboxQueuedOnline' : 'outboxQueuedOffline')}
+      </span>
+      <span className={styles.queuedActions}>
+        <button
+          type="button"
+          className={styles.queuedAction}
+          disabled={!online}
+          onClick={onRetry}
+        >
+          {t('outboxSendNow')}
+        </button>
+        <button
+          type="button"
+          className={clsx(styles.queuedAction, styles.queuedCancel)}
+          onClick={onCancel}
+        >
+          {t('outboxCancel')}
+        </button>
+      </span>
+    </div>
+  )
+}
+
 export const AssistantMessage = memo(function AssistantMessage({
   sessionId,
   message,
@@ -58,9 +91,10 @@ export const AssistantMessage = memo(function AssistantMessage({
   onSelectVersion: SelectMessageVersion
 }) {
   const t = useTranslate()
-  const online = useOnlineStatus()
   const view = useReplyView(message, streaming)
-  const panelEntry = useSearchPanel((state) => state.entry)
+  const summaryEntry = `${message.id}-summary`
+  // 只订阅「本条摘要是否激活」，切换面板时其余历史消息不重渲染
+  const summaryActive = useSearchPanel((state) => state.entry === summaryEntry)
   const queued = message.status === 'queued'
   const notice = streaming || queued ? null : describeReply(message)
   // 安全拒绝：已下发的思考与正文按协议丢弃，只显示模板答复。
@@ -71,7 +105,6 @@ export const AssistantMessage = memo(function AssistantMessage({
     .join('\n\n')
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
-  const summaryEntry = `${message.id}-summary`
   // 长按菜单只复制 / 引用正文，思考内容不进入剪贴板与草稿
   const answerText = answer?.text ?? ''
   const templateText = notice?.presentation === 'response' ? notice.text : ''
@@ -140,33 +173,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           ))}
         </div>
       ) : null}
-      {queued ? (
-        <div className={styles.queued} role="status">
-          <span className={styles.queuedIcon}>
-            <IconCloudOffOutline16 />
-          </span>
-          <span className={styles.queuedText}>
-            {t(online ? 'outboxQueuedOnline' : 'outboxQueuedOffline')}
-          </span>
-          <span className={styles.queuedActions}>
-            <button
-              type="button"
-              className={styles.queuedAction}
-              disabled={!online}
-              onClick={retryQueued}
-            >
-              {t('outboxSendNow')}
-            </button>
-            <button
-              type="button"
-              className={clsx(styles.queuedAction, styles.queuedCancel)}
-              onClick={cancelQueued}
-            >
-              {t('outboxCancel')}
-            </button>
-          </span>
-        </div>
-      ) : null}
+      {queued ? <QueuedBanner onRetry={retryQueued} onCancel={cancelQueued} /> : null}
       {notice && notice.presentation !== 'response' ? (
         <div className={styles.notice}>
           <IconWarningOutline16 />
@@ -202,7 +209,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       ) : null}
       {!streaming && !refused && view.searchResults.length > 0 ? (
         <div
-          className={clsx(styles.summary, panelEntry === summaryEntry && styles.summaryActive)}
+          className={clsx(styles.summary, summaryActive && styles.summaryActive)}
           onClick={() => toggleSearchPanel(summaryEntry, view.searchResults)}
         >
           <SiteThumbnails sources={view.searchResults} />

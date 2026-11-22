@@ -69,17 +69,3 @@ export const IconChevronUpDown16 = () => (
     />
   </svg>
 )
-
-export const IconImageOutline16 = () => (
-  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x={1.9} y={2.6} width={12.2} height={10.8} rx={1.6} stroke="currentColor" strokeWidth={1.2} />
-    <circle cx={5.8} cy={6.4} r={1.2} stroke="currentColor" strokeWidth={1.1} />
-    <path
-      d="m3.2 11.8 3.1-3.2c.5-.5 1.3-.5 1.8 0l1.4 1.4 1.2-1.2c.5-.5 1.3-.5 1.8 0l1.1 1.1"
-      stroke="currentColor"
-      strokeWidth={1.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-)

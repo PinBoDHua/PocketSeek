@@ -30,6 +30,7 @@ const syncPageBackground = () => {
 }
 
 /** 同步页面主题、根画布背景和支持 theme-color 的浏览器栏。 */
+let transitionTimer: ReturnType<typeof setTimeout> | null = null
 const applyTheme = (theme: Theme) => {
   const body = document.body
   // 主题切换帧禁用过渡，使页面颜色同步更新
@@ -48,7 +49,12 @@ const applyTheme = (theme: Theme) => {
   if (document.readyState === 'complete') {
     syncPageBackground()
   }
-  setTimeout(() => {
+  // 连续切换时重置计时器，避免上一次的回调提前解除过渡禁用
+  if (transitionTimer !== null) {
+    clearTimeout(transitionTimer)
+  }
+  transitionTimer = setTimeout(() => {
+    transitionTimer = null
     body.classList.remove('change-theme')
   }, 0)
 }

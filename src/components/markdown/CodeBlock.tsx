@@ -1,5 +1,5 @@
 import { useTranslate } from '../../i18n/index.js'
-import { memo, useEffect, useMemo, useReducer, useState } from 'react'
+import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import Prism from 'prismjs'
 import {
   getHighlightLang,
@@ -50,6 +50,15 @@ const CodeInfoRow = ({
 }) => {
   const t = useTranslate()
   const [copied, setCopied] = useState(false)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (resetTimer.current !== null) {
+        clearTimeout(resetTimer.current)
+      }
+    },
+    []
+  )
   return (
     <div className={styles.container}>
       {onToggleDiagram ? (
@@ -100,7 +109,14 @@ const CodeInfoRow = ({
               return
             }
             setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
+            // 连续点击重置计时器；卸载时清理，避免卸载后 setState
+            if (resetTimer.current !== null) {
+              clearTimeout(resetTimer.current)
+            }
+            resetTimer.current = setTimeout(() => {
+              resetTimer.current = null
+              setCopied(false)
+            }, 1500)
           }}
         >
           {copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}

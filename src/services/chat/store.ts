@@ -43,7 +43,8 @@ import {
   removeOutboxEntry,
   sortedOutboxEntries,
 } from './outbox.js'
-import { removePins } from './pins.js'
+import { clearPins, removePins } from './pins.js'
+import { buildSystemPrompt } from './systemPrompt.js'
 import {
   collectServerIds,
   enqueueRemoteFileDeletions,
@@ -68,12 +69,6 @@ import {
   type UserMessage,
 } from './types.js'
 
-/**
- * 所有生成请求统一携带的助手身份说明。
- * PocketSeek 是第三方客户端：不冒充 DeepSeek 官方，也不自称「由深度求索创造」。
- */
-const SYSTEM_PROMPT =
-  '你是运行在 PocketSeek 中的中文 AI 助手。PocketSeek 是第三方 DeepSeek API 客户端，由 DeepSeek 模型驱动，与深度求索公司没有隶属或官方合作关系。当用户询问身份或来源时，请如实说明这一点，不要自称 DeepSeek 官方客户端。'
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
 /** 安全审核固定开启，所有请求都走扩展模式 */
@@ -500,6 +495,7 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     pendingFiles.clear()
     clearAllDrafts()
     clearOutbox()
+    clearPins()
     if (oldServerIds.length > 0) {
       enqueueRemoteFileDeletions(oldServerIds)
       void flushRemoteFileDeletions()
@@ -1164,7 +1160,7 @@ const streamReply = async (
           useSettings.getState().apiKey ?? '',
           {
             model: initial.model ?? useSettings.getState().model,
-            system: SYSTEM_PROMPT,
+            system: buildSystemPrompt(useSettings.getState().systemPrompt),
             messages,
             thinking: { type: effort === 'none' ? 'disabled' : 'enabled' },
             // 官方默认 effort 即 high，只有 low / max 需要显式下发

@@ -31,6 +31,7 @@ import {
   useDrafts,
 } from '../../services/chat/drafts.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
+import { hapticLight, hapticSelection, hapticWarning } from '../../services/haptics.js'
 import { IconButton } from '../base/IconButton.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
@@ -192,7 +193,10 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     key: value,
     label: t(EFFORT_LABELS[value]),
     icon: value === effort ? <IconCheckOutline16 /> : <span className={styles.menuSpacer} />,
-    onSelect: () => setEffort(value),
+    onSelect: () => {
+      setEffort(value)
+      hapticSelection()
+    },
   }))
 
   /** 转写结果插入到光标处，并把光标移到插入内容之后 */
@@ -273,6 +277,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       lastSentAt = Date.now()
     }
     showSentFeedback(SENT_FEEDBACK_MS)
+    hapticLight()
     stopReadAloud()
     if (isMobile) {
       textareaRef.current?.blur()
@@ -486,6 +491,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               aria-label={t('chatInputStopButtonTooltip')}
               onClick={() => {
                 stopReadAloud()
+                hapticWarning()
                 stopReply(sessionId)
               }}
             >

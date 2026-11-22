@@ -1,6 +1,6 @@
 {
   "name": "pocketseek",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "PocketSeek：基于 DeepSeek 官方开源 chat-demo 改造的手机端第三方聊天客户端。",
   "license": "MIT",
   "private": true,
@@ -10,13 +10,14 @@
     "build": "node scripts/build.mjs",
     "serve": "node scripts/serve.mjs",
     "type": "tsc -p tsconfig.json",
-    "test": "node --test test/sse.test.ts test/url.test.ts test/zipReader.test.ts",
+    "test": "node --experimental-test-module-mocks --import ./test/ts-resolve.mjs --test \"test/*.test.ts\"",
     "lint": "oxlint src rspack.config.ts",
     "format": "oxfmt --write ."
   },
   "dependencies": {
     "@capacitor/core": "^8.6.2",
     "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/share": "^8.0.3",
     "@capacitor/splash-screen": "^8.0.2",
     "@types/katex": "^0.16.5",

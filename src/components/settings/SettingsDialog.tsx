@@ -24,11 +24,13 @@ import { usePwaInstall } from '../../pwa.js'
 import type { ChatModel, ThinkEffort } from '../../services/api/types.js'
 import {
   setEffort,
+  setHaptics,
   setMessageWidth,
   setModel,
   setReadFontSize,
   setReadLineHeight,
   setShowUsage,
+  setSystemPrompt,
   setThemePreference,
   setTtsVoice,
   useSettings,
@@ -37,6 +39,9 @@ import {
   type ReadLineHeight,
   type ThemePreference,
 } from '../../services/settings.js'
+import { MAX_SYSTEM_PROMPT_LENGTH } from '../../services/chat/systemPrompt.js'
+import { hapticSelection } from '../../services/haptics.js'
+import { isNativeShell } from '../../native.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { BrandMark } from '../base/BrandMark.js'
 import { Button } from '../base/Button.js'
@@ -48,6 +53,7 @@ import { closeSettings, useSettingsDialog, type SettingsSection } from './settin
 import { PromptsPanel } from './PromptsPanel.js'
 import { UsagePanel } from './UsagePanel.js'
 import styles from './Settings.module.css'
+import editorStyles from './PromptsPanel.module.css'
 
 /**
  * 设置弹窗：分「通用设置」（主题、默认模型、思考强度、朗读音色、用量脚注）、
@@ -120,6 +126,8 @@ const SettingsContent = () => {
               <EffortSetting />
               <TtsVoiceSetting />
               <ShowUsageSetting />
+              <SystemPromptSetting />
+              {isNativeShell() ? <HapticsSetting /> : null}
             </>
           ) : section === 'prompts' ? (
             <PromptsPanel />
@@ -310,7 +318,10 @@ const ModelSetting = () => {
           ariaLabel={t('settingsDefaultModel')}
           value={model}
           options={modelOptions.map((option) => ({ value: option.value, label: t(option.label) }))}
-          onChange={setModel}
+          onChange={(value) => {
+            setModel(value)
+            hapticSelection()
+          }}
         />
       }
     />
@@ -336,7 +347,10 @@ const EffortSetting = () => {
           ariaLabel={t('settingsDefaultEffort')}
           value={effort}
           options={effortOptions.map((option) => ({ value: option.value, label: t(option.label) }))}
-          onChange={setEffort}
+          onChange={(value) => {
+            setEffort(value)
+            hapticSelection()
+          }}
         />
       }
     />
@@ -360,6 +374,113 @@ const ShowUsageSetting = () => {
             { value: 'off', label: t('settingsShowUsageOff') },
           ]}
           onChange={(value) => setShowUsage(value === 'on')}
+        />
+      }
+    />
+  )
+}
+
+/** 通用 → 自定义系统提示词：人设/规则追加在固定身份说明之后，仅本机保存 */
+const SystemPromptSetting = () => {
+  const t = useTranslate()
+  const systemPrompt = useSettings((state) => state.systemPrompt)
+  const [editing, setEditing] = useState(false)
+  return (
+    <>
+      <SettingCell
+        label={t('settingsSystemPrompt')}
+        description={
+          systemPrompt
+            ? t('settingsSystemPromptCustom', { count: systemPrompt.length })
+            : t('settingsSystemPromptDefault')
+        }
+        status={null}
+        action={
+          <Button variant="outlined" size="m" onClick={() => setEditing(true)}>
+            {t('settingsSystemPromptEdit')}
+          </Button>
+        }
+      />
+      {editing ? (
+        <SystemPromptEditor initial={systemPrompt} onClose={() => setEditing(false)} />
+      ) : null}
+    </>
+  )
+}
+
+const SystemPromptEditor = ({
+  initial,
+  onClose,
+}: {
+  initial: string
+  onClose: () => void
+}) => {
+  const t = useTranslate()
+  const [value, setValue] = useState(initial)
+  const save = () => {
+    setSystemPrompt(value)
+    showToast({ key: 'systemPromptSaved' })
+    onClose()
+  }
+  const clear = () => {
+    setSystemPrompt('')
+    showToast({ key: 'systemPromptCleared' })
+    onClose()
+  }
+  return (
+    <Modal
+      title={t('systemPromptEditorTitle')}
+      onClose={onClose}
+      className={editorStyles.editor}
+      footer={
+        <>
+          {initial ? (
+            <Button variant="outlined" onClick={clear}>
+              {t('systemPromptClear')}
+            </Button>
+          ) : null}
+          <Button variant="outlined" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={save}>{t('promptSave')}</Button>
+        </>
+      }
+    >
+      <label className={editorStyles.field}>
+        <span className={editorStyles.fieldLabel}>{t('systemPromptLabel')}</span>
+        <textarea
+          className={editorStyles.textarea}
+          value={value}
+          maxLength={MAX_SYSTEM_PROMPT_LENGTH}
+          rows={8}
+          placeholder={t('systemPromptPlaceholder')}
+          autoFocus
+          onChange={(event) => setValue(event.target.value)}
+        />
+      </label>
+      <div className={editorStyles.hint}>{t('systemPromptHint')}</div>
+    </Modal>
+  )
+}
+
+/** 通用 → 触感反馈：仅原生壳内显示，浏览器无震动能力 */
+const HapticsSetting = () => {
+  const t = useTranslate()
+  const haptics = useSettings((state) => state.haptics)
+  return (
+    <SettingCell
+      label={t('settingsHaptics')}
+      description={t('settingsHapticsDescription')}
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsHaptics')}
+          value={haptics ? 'on' : 'off'}
+          options={[
+            { value: 'on', label: t('settingsHapticsOn') },
+            { value: 'off', label: t('settingsHapticsOff') },
+          ]}
+          onChange={(value) => setHaptics(value === 'on')}
         />
       }
     />

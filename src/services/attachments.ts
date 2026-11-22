@@ -228,6 +228,23 @@ export const seedUploadTask = (id: string, serverId: string) => {
   setTask(id, { status: 'done', serverId })
 }
 
+/** 释放不再被草稿引用的已完成任务；进行中与失败任务保留（补传状态仍需要） */
+export const pruneDoneUploadTasks = (keepIds: ReadonlySet<string>) => {
+  const stale = Object.entries(useUploads.getState().tasks).some(
+    ([id, task]) => task.status === 'done' && !keepIds.has(id)
+  )
+  if (!stale) {
+    return
+  }
+  useUploads.setState((state) => ({
+    tasks: Object.fromEntries(
+      Object.entries(state.tasks).filter(
+        ([id, task]) => task.status !== 'done' || keepIds.has(id)
+      )
+    ),
+  }))
+}
+
 /** 检查旧图片的 file_id。超限返回 null 以触发补传，无法读取原件时保留原 ID。 */
 export const checkImageFileIds = async (files: FileAttachment[], signal: AbortSignal) => {
   const checked = new Map<string, string | null>()

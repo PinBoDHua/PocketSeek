@@ -31,15 +31,21 @@ export type ApiErrorKind =
 
 export class ApiError extends Error {
   readonly localMessage?: TranslationMessage
+  /** 服务端结构化错误类型（如 rate_limit_error），优先于文案正则 */
+  readonly errorType?: string
+  readonly errorCode?: string
 
   constructor(
     readonly kind: ApiErrorKind,
     message: string | TranslationMessage,
-    readonly status?: number
+    readonly status?: number,
+    info?: { type?: string; code?: string | null }
   ) {
     super(typeof message === 'string' ? message : translate(message.key, message.params))
     this.name = 'ApiError'
     this.localMessage = typeof message === 'string' ? undefined : message
+    this.errorType = info?.type
+    this.errorCode = info?.code ?? undefined
   }
 }
 
@@ -88,15 +94,17 @@ const readErrorResponse = async (
 ): Promise<ApiError> => {
   const text = await readErrorText(response).catch(() => '')
   let message = text || fallback
+  let info: { type?: string; code?: string | null } | undefined
   try {
     const body: unknown = JSON.parse(text)
     if (isErrorBody(body)) {
       message = body.error.message
+      info = { type: body.error.type, code: body.error.code }
     }
   } catch {
     // 非 JSON 响应体直接展示原文
   }
-  return new ApiError(kind, message, response.status)
+  return new ApiError(kind, message, response.status, info)
 }
 
 /**
@@ -245,7 +253,10 @@ export async function* streamMessage(
         }
       }
       if (isErrorBody(payload)) {
-        throw new ApiError('stream', payload.error.message)
+        throw new ApiError('stream', payload.error.message, undefined, {
+          type: payload.error.type,
+          code: payload.error.code,
+        })
       }
       if (eventName === 'error') {
         throw new ApiError('stream', data)
@@ -265,6 +276,6 @@ export async function* streamMessage(
     }
     throw error
   }
-  // 服务端没有提供错误内容时保持为空，不推测断流原因。
-  throw new ApiError('interrupted', '')
+  // 流在 message_stop 之前结束：不推测原因，只说明回答未完成
+  throw new ApiError('interrupted', { key: 'replyInterrupted' })
 }

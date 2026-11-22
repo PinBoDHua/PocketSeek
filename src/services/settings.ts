@@ -3,6 +3,7 @@ import type { ChatModel, ThinkEffort } from './api/types.js'
 import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
 import { initialApiKey, loadApiKey, persistApiKey } from './secureKey.js'
+import { normalizeSystemPrompt } from './chat/systemPrompt.js'
 
 /** 应用界面固定为简体中文（PocketSeek 为中文单语客户端） */
 export type Locale = 'zh-CN'
@@ -37,6 +38,10 @@ type Settings = {
   readLineHeight: ReadLineHeight
   messageWidth: MessageWidth
   siderCollapsed: boolean
+  /** 用户自定义系统提示词，追加在固定身份说明之后；空串表示只用默认 */
+  systemPrompt: string
+  /** 原生壳内的触感反馈开关，默认开启 */
+  haptics: boolean
 }
 
 const KEYS = {
@@ -51,6 +56,8 @@ const KEYS = {
   readLineHeight: 'pocketseek:read-line-height',
   messageWidth: 'pocketseek:message-width',
   siderCollapsed: 'pocketseek:sider-collapsed',
+  systemPrompt: 'pocketseek:system-prompt',
+  haptics: 'pocketseek:haptics',
 } as const
 
 const read = (key: string) => {
@@ -136,6 +143,8 @@ export const useSettings = create<Settings>(() => ({
   ),
   messageWidth: initialChoice(KEYS.messageWidth, ['compact', 'standard', 'wide'], 'standard'),
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
+  systemPrompt: normalizeSystemPrompt(read(KEYS.systemPrompt) ?? ''),
+  haptics: read(KEYS.haptics) !== 'false',
 }))
 
 export const setLocation = (value: UserLocation | null) => {
@@ -202,4 +211,15 @@ export const setMessageWidth = (messageWidth: MessageWidth) => {
 export const setSiderCollapsed = (siderCollapsed: boolean) => {
   write(KEYS.siderCollapsed, String(siderCollapsed))
   useSettings.setState({ siderCollapsed })
+}
+
+export const setSystemPrompt = (value: string) => {
+  const systemPrompt = normalizeSystemPrompt(value)
+  write(KEYS.systemPrompt, systemPrompt || null)
+  useSettings.setState({ systemPrompt })
+}
+
+export const setHaptics = (haptics: boolean) => {
+  write(KEYS.haptics, String(haptics))
+  useSettings.setState({ haptics })
 }

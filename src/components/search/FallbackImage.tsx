@@ -35,6 +35,7 @@ export const FallbackImage = memo(function FallbackImage({
         <img
           src={src}
           alt=""
+          referrerPolicy="no-referrer"
           onLoad={() => setLoadResult('loaded')}
           onError={() => setLoadResult('error')}
           style={{ display: loadResult === 'loaded' ? 'block' : 'none' }}

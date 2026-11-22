@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { useTranslate } from '../i18n/index.js'
 import { useSettings } from '../services/settings.js'
 import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
 import {
   bindChatPersistence,
   bindOutbox,
+  flushOutbox,
   initChat,
   retrySaveSessions,
   selectSession,
@@ -15,8 +16,7 @@ import { closeSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
-import { ensureApiKey } from '../components/settings/settingsDialogState.js'
-import { SettingsDialog } from '../components/settings/SettingsDialog.js'
+import { ensureApiKey, useSettingsDialog } from '../components/settings/settingsDialogState.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -27,6 +27,25 @@ import { CollapsedSider } from '../components/sider/CollapsedSider.js'
 import { closeMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
 import styles from './App.module.css'
+
+// 设置弹窗按需加载：提示词/用量/导入导出等 UI 只在打开设置时加载
+const SettingsDialog = lazy(() =>
+  import('../components/settings/SettingsDialog.js').then((module) => ({
+    default: module.SettingsDialog,
+  }))
+)
+
+const SettingsGate = () => {
+  const open = useSettingsDialog((state) => state.open)
+  if (!open) {
+    return null
+  }
+  return (
+    <Suspense fallback={null}>
+      <SettingsDialog />
+    </Suspense>
+  )
+}
 
 export const App = () => {
   const t = useTranslate()
@@ -124,7 +143,8 @@ export const App = () => {
                       size="m"
                       onClick={() => {
                         if (!ready) {
-                          void initChat()
+                          // 启动链路失败后重试：初始化成功还要补发离线队列
+                          void initChat().then(() => flushOutbox())
                         } else if (activeId !== null) {
                           selectSession(activeId)
                         }
@@ -148,7 +168,7 @@ export const App = () => {
         </main>
         <SearchPanel />
       </div>
-      <SettingsDialog />
+      <SettingsGate />
       <Toast />
     </>
   )

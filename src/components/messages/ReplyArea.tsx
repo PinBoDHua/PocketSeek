@@ -32,6 +32,7 @@ import { Tooltip } from '../base/Tooltip.js'
 import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
+import { isWebUrl } from '../../utils/url.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
 
@@ -64,7 +65,6 @@ export const ReplyArea = memo(function ReplyArea({
   streaming: boolean
   hasResponse: boolean
 }) {
-  useTranslate()
   const [open, setOpen] = useState(true)
   // 手机屏幕空间有限：回答开始输出后自动收起思考区，用户手动展开过就不再自动收起。
   const userToggled = useRef(false)
@@ -207,12 +207,13 @@ const SearchRow = ({
   isLast: boolean
 }) => {
   const t = useTranslate()
-  const entry = useSearchPanel((state) => state.entry)
+  const panelEntry = `${message.id}-search-${step.key}`
+  // 只订阅「本行是否激活」的布尔值，切换面板时其余消息行不重渲染
+  const active = useSearchPanel((state) => state.entry === panelEntry)
   const wip = step.status === 'wip'
   const tick = useTicker(wip && step.queries.length > 1, 2000)
   const count = step.results.length
   const clickable = !wip && count > 0
-  const panelEntry = `${message.id}-search-${step.key}`
   const failed = step.status === 'failed'
   const interrupted = failed && !streaming && message.status === 'stopped'
 
@@ -261,7 +262,7 @@ const SearchRow = ({
         styles.row,
         !isLast && styles.withLine,
         clickable && styles.clickable,
-        entry === panelEntry && styles.active
+        active && styles.active
       )}
       onClick={clickable ? () => toggleSearchPanel(panelEntry, step.results) : undefined}
     >
@@ -289,27 +290,29 @@ const ToolRow = ({
   </div>
 )
 
-const PageLink = ({ page, failedTip }: { page: PageItem; failedTip?: string }) => (
-  <span
-    className={clsx(
-      styles.page,
-      page.status === 'failed' || !page.url ? styles.pageFailed : styles.pageDone
-    )}
-  >
-    {page.status === 'failed' ? (
-      <Tooltip content={failedTip}>
+const PageLink = ({ page, failedTip }: { page: PageItem; failedTip?: string }) => {
+  const linkable = page.status !== 'failed' && !!page.url && isWebUrl(page.url)
+  return (
+    <span
+      className={clsx(styles.page, linkable ? styles.pageDone : styles.pageFailed)}
+    >
+      {page.status === 'failed' ? (
+        <Tooltip content={failedTip}>
+          <span className={styles.pageText}>{page.title}</span>
+        </Tooltip>
+      ) : linkable ? (
+        <a className={styles.pageText} href={page.url} target="_blank" rel="noreferrer">
+          {page.title}
+        </a>
+      ) : (
         <span className={styles.pageText}>{page.title}</span>
-      </Tooltip>
-    ) : (
-      <a className={styles.pageText} href={page.url} target="_blank" rel="noreferrer">
-        {page.title}
-      </a>
-    )}
-    <span className={styles.pageIcon}>
-      <IconRightUpOutline14 />
+      )}
+      <span className={styles.pageIcon}>
+        <IconRightUpOutline14 />
+      </span>
     </span>
-  </span>
-)
+  )
+}
 
 /** 边想边搜打开的网页：「浏览 N 个页面」+ 最多 5 个页面 */
 const OpenRow = ({

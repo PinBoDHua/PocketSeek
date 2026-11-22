@@ -92,7 +92,12 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     () => groupSessions(sessions, now, t, pinnedIds),
     [sessions, now, t, pinnedIds]
   )
-  // 搜索读全库而不是只读会话列表，防抖后执行；会话列表变化（重命名、删除）时重新搜索
+  // 搜索读全库而不是只读会话列表，防抖后执行；会话内容变化（重命名、删除、新消息）时重新搜索。
+  // 依赖稳定签名而非数组引用；刷新期间保留旧结果，避免结果闪烁清空。
+  const sessionsSignal = useMemo(
+    () => sessions.map((session) => `${session.id}:${session.updatedAt}:${session.title}`).join('|'),
+    [sessions]
+  )
   useEffect(() => {
     const keyword = query.trim()
     if (!keyword) {
@@ -103,7 +108,6 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     let cancelled = false
     const controller = new AbortController()
     setSearchPending(true)
-    setSearchResult(null)
     const timer = setTimeout(() => {
       void searchAllSessions(keyword, controller.signal)
         .then((result) => {
@@ -126,7 +130,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       controller.abort()
       clearTimeout(timer)
     }
-  }, [query, sessions])
+  }, [query, sessionsSignal])
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>

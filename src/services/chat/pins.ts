@@ -38,3 +38,9 @@ export const removePins = (ids: string[]) => {
   write(next)
   usePins.setState({ ids: next })
 }
+
+/** 替换历史/清空全部后旧会话 ID 全部失效，置顶列表整体清空 */
+export const clearPins = () => {
+  write([])
+  usePins.setState({ ids: [] })
+}

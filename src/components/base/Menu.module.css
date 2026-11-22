@@ -4,7 +4,8 @@
 
 .menu {
   position: fixed;
-  z-index: 900;
+  /* 高于 Modal(1000)/Select(1050)，弹窗内打开的菜单不被遮挡 */
+  z-index: 1100;
   box-sizing: border-box;
   min-width: 124px;
   padding: 4px;

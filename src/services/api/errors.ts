@@ -33,25 +33,36 @@ export const classifyStatus = (status: number | undefined): ApiErrorCondition =>
   return 'other'
 }
 
+/** Anthropic 兼容错误类型到分类的映射（流错误帧没有 HTTP 状态码时用） */
+const ERROR_TYPE_CONDITIONS: Record<string, ApiErrorCondition> = {
+  authentication_error: 'unauthorized',
+  rate_limit_error: 'rateLimited',
+  request_too_large: 'tooLarge',
+  api_error: 'serverBusy',
+  overloaded_error: 'serverBusy',
+}
+
 export const classifyApiError = (error: unknown): ApiErrorCondition => {
   if (!(error instanceof ApiError)) {
     return 'other'
   }
   if (error.status === undefined) {
-    return error.kind === 'network' ? 'network' : 'other'
+    if (error.kind === 'network') {
+      return 'network'
+    }
+    // 结构化类型优先于文案；未识别的类型保持 other
+    return (error.errorType && ERROR_TYPE_CONDITIONS[error.errorType]) || 'other'
   }
   return classifyStatus(error.status)
 }
 
-/** 重试可能成功的情况：网络、限流、服务端繁忙；参数或鉴权类错误重试无用 */
+/** 重试可能成功的情况：网络、限流、服务端繁忙；参数、鉴权与程序性异常重试无用 */
 export const isRetryableApiError = (error: unknown): boolean => {
+  if (!(error instanceof ApiError)) {
+    return false
+  }
   const condition = classifyApiError(error)
-  return (
-    !(error instanceof ApiError) ||
-    condition === 'network' ||
-    condition === 'rateLimited' ||
-    condition === 'serverBusy'
-  )
+  return condition === 'network' || condition === 'rateLimited' || condition === 'serverBusy'
 }
 
 /** 服务端判定附件失效的情况：本地有原件时重新上传即可自愈 */
@@ -67,12 +78,22 @@ const FILE_ERROR_PATTERNS: ReadonlyArray<readonly [FileErrorCode, RegExp]> = [
 /**
  * 只识别「附件 file_id 失效」这一类 400：服务端查不到文件、文件数据丢失、file_id 格式非法。
  * 其余错误（限流、余额、purpose 不合规等）不在这里处理，保持原有失败提示。
+ * 结构化 code 优先匹配，英文文案正则兜底（样例见 test/errors.test.ts）。
  */
 export const getFileErrorCode = (error: unknown): FileErrorCode | null => {
   if (!(error instanceof ApiError) || error.status !== 400) {
     return null
   }
-  return FILE_ERROR_PATTERNS.find(([, pattern]) => pattern.test(error.message))?.[0] ?? null
+  for (const text of [error.errorCode, error.message]) {
+    if (!text) {
+      continue
+    }
+    const hit = FILE_ERROR_PATTERNS.find(([, pattern]) => pattern.test(text))
+    if (hit) {
+      return hit[0]
+    }
+  }
+  return null
 }
 
 /** 从报错文案里取出服务端 file_id，用于只重置真正失效的附件 */
@@ -95,22 +116,27 @@ const PARSE_FAILED_PATTERNS = [
 
 /**
  * 识别 Files API 上传的 400。配额类文案带上限数值，单个 Key 与账号合计（across all sub keys）共用同一提示。
+ * 结构化 code 优先匹配，英文文案正则兜底（样例见 test/errors.test.ts）。
  */
 export const getUploadErrorInfo = (error: unknown): UploadErrorInfo | null => {
   if (!(error instanceof ApiError) || error.status !== 400) {
     return null
   }
-  const { message } = error
-  const count = /User file count limit exceeded.*?limit (\d+)/i.exec(message)
-  if (count) {
-    return { code: 'fileCountLimit', limit: count[1] }
-  }
-  const storage = /User storage quota exceeded.*?limit ([\d.]+) GB/i.exec(message)
-  if (storage) {
-    return { code: 'storageLimit', limit: storage[1] }
-  }
-  if (PARSE_FAILED_PATTERNS.some((pattern) => pattern.test(message))) {
-    return { code: 'parseFailed' }
+  for (const text of [error.errorCode, error.message]) {
+    if (!text) {
+      continue
+    }
+    const count = /User file count limit exceeded.*?limit (\d+)/i.exec(text)
+    if (count) {
+      return { code: 'fileCountLimit', limit: count[1] }
+    }
+    const storage = /User storage quota exceeded.*?limit ([\d.]+) GB/i.exec(text)
+    if (storage) {
+      return { code: 'storageLimit', limit: storage[1] }
+    }
+    if (PARSE_FAILED_PATTERNS.some((pattern) => pattern.test(text))) {
+      return { code: 'parseFailed' }
+    }
   }
   return null
 }
